@@ -1,0 +1,31 @@
+{
+    "name": "nextcloud-publish/ssg-library",
+    "description": "CommonMark-based static site generator for Collectives page exports",
+    "type": "library",
+    "license": "AGPL-3.0-or-later",
+    "require": {
+        "php": ">=8.4",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "ezyang/htmlpurifier": "^4.19",
+        "league/commonmark": "^2.7",
+        "scrivo/highlight.php": "^9.18"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^13.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "SsgLab\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "SsgLab\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    }
+}

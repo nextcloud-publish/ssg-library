@@ -1,0 +1,416 @@
+/*
+ * Wiki-style theme. All colors and the type scale come from the custom
+ * properties below.
+ *
+ * Every color is a `light-dark()` pair, so the two themes sit side by side on
+ * one line instead of in two blocks that have to be kept in sync. Which half
+ * of each pair applies is decided by the inherited `color-scheme` alone — see
+ * the rules right below this block for how the toggle sets it.
+ */
+:root {
+	color-scheme: light dark;
+
+	--bg: light-dark(#fdfdfc, #14171a);
+	--bg-sunken: light-dark(#f6f6f4, #1b1f23);
+	--bg-raised: light-dark(#fff, #1a1e22);
+	--text: light-dark(#23282d, #dfe3e6);
+	--text-muted: light-dark(#6b7178, #9aa3ab);
+	--border: light-dark(#e2e2de, #2c3237);
+	--border-strong: light-dark(#c9c9c3, #3d444b);
+	--link: light-dark(#1e5fa8, #8ab4f8);
+	--link-visited: light-dark(#6b4ba1, #c3a6e8);
+	--accent: light-dark(#0082c9, #4dabdf);
+
+	/* Syntax highlighting tokens (see the `hljs-*` rules further down). */
+	--hl-comment: light-dark(#7c848c, #7f8892);
+	--hl-keyword: light-dark(#a12ba0, #c678dd);
+	--hl-string: light-dark(#3f8c3f, #98c379);
+	--hl-number: light-dark(#99671a, #d19a66);
+	--hl-title: light-dark(#2b62b8, #61afef);
+	--hl-type: light-dark(#9a6d13, #e5c07b);
+	--hl-variable: light-dark(#cf4436, #e06c75);
+	--hl-addition: light-dark(#2f7d32, #8fc98f);
+	--hl-deletion: light-dark(#c03d31, #e8878f);
+
+	--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+	--sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+	--mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+	--measure: 46rem;
+	--radius: 6px;
+}
+
+/*
+ * Theme selection. `theme.js` puts `data-theme` on <html>; pinning
+ * `color-scheme` to it is the entire mechanism, because every token above is
+ * a `light-dark()` pair that follows from it — as do the scrollbars and form
+ * controls the browser paints itself. With the attribute absent (no JS) the
+ * `light dark` default above leaves the OS in charge.
+ */
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+	margin: 0;
+	font-family: var(--sans);
+	font-size: 1rem;
+	line-height: 1.7;
+	color: var(--text);
+	background: var(--bg);
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+a { color: var(--link); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:visited { color: var(--link-visited); }
+a:hover { text-decoration-thickness: 2px; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+::selection { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+
+/* ---------- Chrome: header / footer ---------- */
+
+.site-header {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+	padding: .7rem 1.5rem;
+	border-bottom: 1px solid var(--border);
+	background: color-mix(in srgb, var(--bg) 88%, transparent);
+	backdrop-filter: saturate(160%) blur(8px);
+	font-size: .82rem;
+	letter-spacing: .04em;
+	text-transform: uppercase;
+}
+.site-header a {
+	color: var(--text-muted);
+	font-weight: 600;
+	text-decoration: none;
+}
+.site-header a:hover { color: var(--text); }
+
+.theme-toggle {
+	display: flex;
+	margin-left: auto;
+	padding: .25rem;
+	border: 0;
+	border-radius: 50%;
+	background: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+.theme-toggle[hidden] { display: none; }
+.theme-toggle:hover { color: var(--text); background: var(--bg-sunken); }
+/* Half-filled disc: the fill sweeps across as the theme flips. */
+.theme-toggle svg { display: block; }
+.theme-toggle .disc-fill {
+	transition: transform .2s ease;
+	transform-origin: center;
+}
+:root[data-theme="dark"] .theme-toggle .disc-fill { transform: rotate(180deg); }
+
+footer {
+	max-width: var(--measure);
+	margin: 4rem auto 0;
+	padding: 1.25rem 1.5rem 3rem;
+	border-top: 1px solid var(--border);
+	color: var(--text-muted);
+	font-size: .8rem;
+}
+
+/* ---------- Page frame ---------- */
+
+main {
+	max-width: var(--measure);
+	margin: 0 auto;
+	padding: 0 1.5rem;
+}
+
+/*
+ * Title and the back link share one row: the title sets the row's height and
+ * the link is pushed to the far end, baseline-aligned with it. The underline
+ * and its accent segment belong to the row, so they span both.
+ */
+.page-header {
+	position: relative;
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1.5rem;
+	margin: 3rem 0 0;
+	padding-bottom: .6rem;
+	border-bottom: 1px solid var(--border-strong);
+}
+.page-header::after {
+	content: "";
+	position: absolute;
+	left: 0;
+	bottom: -1px;
+	width: 3.5rem;
+	height: 2px;
+	background: var(--accent);
+}
+
+.page-title {
+	font-family: var(--serif);
+	font-weight: 400;
+	font-size: clamp(2rem, 1.4rem + 2.4vw, 2.9rem);
+	line-height: 1.15;
+	letter-spacing: -.01em;
+	margin: 0;
+	/* Let a long title wrap instead of squeezing the back link. */
+	min-width: 0;
+	overflow-wrap: break-word;
+}
+
+.page { margin-top: 2rem; }
+
+.back {
+	flex: none;
+	color: var(--text-muted);
+	font-size: .85rem;
+	text-decoration: none;
+	white-space: nowrap;
+}
+.back:hover { color: var(--link); text-decoration: underline; }
+
+/* ---------- Prose ---------- */
+
+.content { font-size: 1.02rem; }
+.content > :first-child { margin-top: 0; }
+.content > :last-child { margin-bottom: 0; }
+
+.content h1, .content h2, .content h3, .content h4 {
+	font-family: var(--serif);
+	font-weight: 400;
+	line-height: 1.25;
+	letter-spacing: -.005em;
+	margin: 2.2rem 0 .6rem;
+}
+.content h1 { font-size: 1.9rem; }
+.content h2 { font-size: 1.5rem; }
+.content h3 { font-size: 1.2rem; }
+.content h4 { font-size: 1.05rem; font-weight: 600; font-family: var(--sans); }
+
+.content p { margin: 0 0 1.1rem; }
+.content ul, .content ol { margin: 0 0 1.1rem; padding-left: 1.6rem; }
+.content li { margin: .3rem 0; }
+.content li > ul, .content li > ol { margin-bottom: 0; }
+.content ::marker { color: var(--text-muted); }
+
+.content hr {
+	height: 1px;
+	margin: 2.5rem 0;
+	border: 0;
+	background: var(--border);
+}
+
+.content blockquote {
+	margin: 1.5rem 0;
+	padding: .2rem 0 .2rem 1.25rem;
+	border-left: 3px solid var(--accent);
+	color: var(--text-muted);
+	font-style: italic;
+}
+.content blockquote > :last-child { margin-bottom: 0; }
+
+.content img {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--radius);
+	border: 1px solid var(--border);
+	background: var(--bg-sunken);
+}
+
+/* Task lists rendered from `- [ ]` / `- [x]`. */
+.content li input[type="checkbox"] {
+	margin-right: .45rem;
+	accent-color: var(--accent);
+	vertical-align: baseline;
+}
+
+/* ---------- Code ---------- */
+
+.content code {
+	font-family: var(--mono);
+	font-size: .88em;
+	padding: .1em .35em;
+	border-radius: 4px;
+	background: var(--bg-sunken);
+	border: 1px solid var(--border);
+}
+.content pre {
+	margin: 1.5rem 0;
+	padding: 1rem 1.1rem;
+	overflow: auto;
+	border-radius: var(--radius);
+	border: 1px solid var(--border);
+	background: var(--bg-sunken);
+	font-size: .88rem;
+	line-height: 1.6;
+	tab-size: 4;
+}
+.content pre code {
+	font-size: inherit;
+	padding: 0;
+	border: 0;
+	background: none;
+}
+
+/*
+ * Syntax highlighting. highlight.php emits the same `hljs-*` class names as
+ * highlight.js, so these rules are a theme for it — grouped by what a token
+ * means rather than by language, which is why each selector list is long.
+ */
+.hljs-comment,
+.hljs-quote {
+	color: var(--hl-comment);
+	font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-doctag,
+.hljs-formula {
+	color: var(--hl-keyword);
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-meta .hljs-string,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+	color: var(--hl-string);
+}
+.hljs-number,
+.hljs-bullet,
+.hljs-symbol,
+.hljs-link,
+.hljs-meta,
+.hljs-selector-id {
+	color: var(--hl-number);
+}
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-selector-class {
+	color: var(--hl-title);
+}
+.hljs-type,
+.hljs-built_in,
+.hljs-class .hljs-title {
+	color: var(--hl-type);
+}
+.hljs-variable,
+.hljs-template-variable,
+.hljs-params,
+.hljs-property,
+.hljs-attr,
+.hljs-attribute,
+.hljs-tag {
+	color: var(--hl-variable);
+}
+/*
+ * Interpolation inside a string (`#{x}`, `${x}`): the surrounding .hljs-string
+ * would otherwise bleed through, so it has to win on specificity.
+ */
+.hljs-string .hljs-subst,
+.hljs-subst {
+	color: var(--hl-variable);
+}
+.hljs-addition { color: var(--hl-addition); }
+.hljs-deletion { color: var(--hl-deletion); }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 600; }
+
+/* ---------- Tables ---------- */
+
+.content table {
+	margin: 1.5rem 0;
+	border-collapse: collapse;
+	font-size: .94rem;
+	background: var(--bg-raised);
+}
+.content th, .content td {
+	padding: .55rem .8rem;
+	border: 1px solid var(--border);
+	vertical-align: top;
+	text-align: left;
+}
+.content thead th {
+	background: var(--bg-sunken);
+	border-bottom: 2px solid var(--border-strong);
+	font-family: var(--sans);
+	font-weight: 600;
+	font-size: .82rem;
+	letter-spacing: .03em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+}
+.content tbody tr:nth-child(even) td {
+	background: color-mix(in srgb, var(--bg-sunken) 55%, transparent);
+}
+.content table p:first-child { margin-top: 0; }
+.content table p:last-child { margin-bottom: 0; }
+
+/* ---------- Sub-page index ---------- */
+
+.subpages { margin: 2.5rem 0 0; }
+.subpages h2 {
+	font-family: var(--sans);
+	font-size: .78rem;
+	font-weight: 700;
+	letter-spacing: .09em;
+	text-transform: uppercase;
+	color: var(--text-muted);
+	margin: 0 0 .5rem;
+}
+.subpages ul {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	border-top: 1px solid var(--border);
+}
+.subpages li { border-bottom: 1px solid var(--border); }
+.subpages a {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 1rem;
+	padding: .7rem .3rem;
+	color: var(--text);
+	font-family: var(--serif);
+	font-size: 1.1rem;
+	text-decoration: none;
+	transition: background-color .12s ease, padding-left .12s ease;
+}
+/* Chevron nudges right on hover. */
+.subpages a::after {
+	content: "›";
+	color: var(--text-muted);
+	font-family: var(--sans);
+	transition: transform .12s ease;
+}
+.subpages a:hover {
+	background: var(--bg-sunken);
+	color: var(--link);
+	padding-left: .6rem;
+}
+.subpages a:hover::after { transform: translateX(3px); }
+
+@media (prefers-reduced-motion: reduce) {
+	* { transition: none !important; }
+}
+
+@media print {
+	.site-header, .back, .subpages a::after, .theme-toggle { display: none; }
+	body { background: #fff; color: #000; }
+	main { max-width: none; }
+	.content a { text-decoration: none; color: inherit; }
+}
