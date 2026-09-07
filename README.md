@@ -36,7 +36,15 @@ Try it against the sample export in `examples/pages`:
 bin/build-site.php examples/pages examples/output "Sample Site"
 ```
 
-Then open `examples/output/index.html` in a browser. `examples/output/` is
+Then serve it with PHP's built-in server rather than opening the file
+directly, since relative links (`../style.css`, sub-pages, attachments) expect
+to be resolved by a webserver:
+
+```sh
+php -S 0.0.0.0:8090 -t examples/output
+```
+
+and open `http://localhost:8090/` in a browser. `examples/output/` is
 gitignored, so re-running the command is always safe.
 
 ### As a library
