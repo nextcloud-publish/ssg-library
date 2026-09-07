@@ -14,6 +14,9 @@
     "require-dev": {
         "phpunit/phpunit": "^13.3"
     },
+    "bin": [
+        "bin/build-site.php"
+    ],
     "autoload": {
         "psr-4": {
             "SsgLab\\": "src/"

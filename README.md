@@ -21,6 +21,26 @@ composer install
 
 ## Usage
 
+### Command line
+
+For quick local iteration, `bin/build-site.php` builds a site straight from
+the terminal:
+
+```sh
+bin/build-site.php <pages-dir> <out-dir> [site-title]
+```
+
+Try it against the sample export in `examples/pages`:
+
+```sh
+bin/build-site.php examples/pages examples/output "Sample Site"
+```
+
+Then open `examples/output/index.html` in a browser. `examples/output/` is
+gitignored, so re-running the command is always safe.
+
+### As a library
+
 ```php
 use SsgLab\SiteBuilder;
 
