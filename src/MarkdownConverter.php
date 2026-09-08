@@ -12,6 +12,7 @@ namespace SsgLab;
 use HTMLPurifier;
 use HTMLPurifier_Config;
 use League\CommonMark\Environment\Environment;
+use League\CommonMark\Event\DocumentParsedEvent;
 use League\CommonMark\Extension\CommonMark\CommonMarkCoreExtension;
 use League\CommonMark\Extension\CommonMark\Node\Block\FencedCode;
 use League\CommonMark\Extension\TaskList\TaskListExtension;
@@ -41,6 +42,7 @@ class MarkdownConverter {
 		// higher priority decides who is asked first. The core ones all sit at
 		// 0, so anything above that wins.
 		$environment->addRenderer(FencedCode::class, new FencedCodeRenderer(), 10);
+		$environment->addEventListener(DocumentParsedEvent::class, new NonImageEmbedRewriter());
 
 		$this->converter = new LeagueMarkdownConverter($environment);
 		$this->purifier = self::createPurifier();

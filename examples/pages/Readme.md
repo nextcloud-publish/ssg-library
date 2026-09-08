@@ -25,4 +25,9 @@ echo "hi from the sample site";
 
 ![A sample image](.attachments.1/example.svg)
 
+Nextcloud Text embeds every attachment as an image, even when it isn't one.
+Those become plain links instead of broken images:
+
+![notes.csv](.attachments.1/notes.csv)
+
 Sub-pages are linked automatically below by `SiteBuilder`.

@@ -103,4 +103,60 @@ class MarkdownConverterTest extends TestCase {
 
 		self::assertStringNotContainsString('javascript:', $html);
 	}
+
+	public function testTurnsNonImageAttachmentEmbedsIntoLinks(): void {
+		$html = $this->converter->toHtml('![my-document.pdf](.attachments.13283766/my-document.pdf)');
+
+		self::assertStringNotContainsString('<img', $html);
+		self::assertStringContainsString(
+			'<a href=".attachments.13283766/my-document.pdf">my-document.pdf</a>',
+			$html,
+		);
+	}
+
+	public function testKeepsAltTextAsLinkTextForNonImageEmbeds(): void {
+		$html = $this->converter->toHtml('![The **full** report](.attachments.1/report.docx)');
+
+		self::assertStringContainsString('<a href=".attachments.1/report.docx">The <strong>full</strong> report</a>', $html);
+	}
+
+	public function testFallsBackToFileNameWhenNonImageEmbedHasNoAltText(): void {
+		$html = $this->converter->toHtml('![](.attachments.1/minutes%202024.pdf)');
+
+		self::assertStringContainsString('>minutes 2024.pdf</a>', $html);
+	}
+
+	public function testKeepsTitleWhenRewritingNonImageEmbeds(): void {
+		$html = $this->converter->toHtml('![slides](.attachments.1/talk.pptx "Kickoff talk")');
+
+		self::assertStringContainsString('title="Kickoff talk"', $html);
+	}
+
+	#[DataProvider('provideImageUrls')]
+	public function testKeepsRealImageEmbedsAsImages(string $url): void {
+		$html = $this->converter->toHtml("![a picture]($url)");
+
+		self::assertStringContainsString('<img', $html);
+		self::assertStringNotContainsString('<a ', $html);
+	}
+
+	public static function provideImageUrls(): array {
+		return [
+			'png' => ['.attachments.1/photo.png'],
+			'jpeg' => ['.attachments.1/photo.JPEG'],
+			'svg' => ['.attachments.1/example.svg'],
+			'webp' => ['.attachments.1/photo.webp'],
+			'query string' => ['.attachments.1/photo.png?preview=1'],
+			// Nothing extension-shaped to judge by: could well be an image.
+			'no extension' => ['https://example.com/avatar'],
+			'long suffix' => ['https://example.com/render/x.imagefile'],
+		];
+	}
+
+	public function testDoesNotRewriteImageSyntaxInsideCodeBlocks(): void {
+		$html = $this->converter->toHtml("```\n![report.pdf](.attachments.1/report.pdf)\n```");
+
+		self::assertStringNotContainsString('<a ', $html);
+		self::assertStringContainsString('![report.pdf]', $html);
+	}
 }
