@@ -57,9 +57,10 @@ class MarkdownConverter {
 		// checkbox that CommonMark's TaskListExtension renders for
 		// `- [ ]` / `- [x]` items, so it's allow-listed as its own element
 		// instead of turning on HTML.Forms.
-		$config->set('HTML.DefinitionID', 'ssg-lab-task-list');
-		$config->set('HTML.DefinitionRev', 1);
-		$config->maybeGetRawHTMLDefinition()?->addElement(
+		$config->set('HTML.DefinitionID', 'ssg-lab');
+		$config->set('HTML.DefinitionRev', 2);
+		$def = $config->maybeGetRawHTMLDefinition();
+		$def?->addElement(
 			'input', 'Inline', 'Empty', 'Common',
 			[
 				'type' => 'Enum#checkbox',
@@ -67,6 +68,12 @@ class MarkdownConverter {
 				'disabled' => 'Bool#disabled',
 			],
 		);
+
+		// <details>/<summary> aren't in HTMLPurifier's default (XHTML 1.0)
+		// doctype either, but Nextcloud Text emits them for collapsible
+		// blocks and smart-picker context references, so allow-list them too.
+		$def?->addElement('details', 'Block', 'Flow', 'Common', ['open' => 'Bool']);
+		$def?->addElement('summary', 'Inline', 'Inline', 'Common');
 
 		return new HTMLPurifier($config);
 	}

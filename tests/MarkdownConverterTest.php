@@ -159,4 +159,24 @@ class MarkdownConverterTest extends TestCase {
 		self::assertStringNotContainsString('<a ', $html);
 		self::assertStringContainsString('![report.pdf]', $html);
 	}
+
+	public function testRendersDetailsAndSummaryBlocks(): void {
+		$html = $this->converter->toHtml(
+			"<details>\n<summary>Click to expand</summary>\nHidden content.\n</details>",
+		);
+
+		self::assertStringContainsString('<details>', $html);
+		self::assertStringContainsString('<summary>Click to expand</summary>', $html);
+		self::assertStringContainsString('Hidden content.', $html);
+	}
+
+	public function testKeepsDetailsContentWhenWrappedInContextReference(): void {
+		$html = $this->converter->toHtml(
+			"<context ref=\"file:///notes.md#L1:2\">\n<details>\n<summary>Aufklappen</summary>\nLorem ipsum.\n</details>\n</context>",
+		);
+
+		self::assertStringContainsString('<details>', $html);
+		self::assertStringContainsString('<summary>Aufklappen</summary>', $html);
+		self::assertStringContainsString('Lorem ipsum.', $html);
+	}
 }
