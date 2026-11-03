@@ -25,7 +25,33 @@ use RuntimeException;
  * written sits, which is all that's needed to build its relative links.
  */
 class SiteBuilder {
+	/** @var list<string> Valid `theme` render option values; file names under src/themes/. */
+	private const THEMES = ['muted', 'colorful'];
+
+	/**
+	 * Static UI chrome text, varied a bit per theme — `colorful` reads more
+	 * playful, `muted` stays plain. Keyed by self::THEMES value, then by copy
+	 * key; `footer` is an sprintf() format string taking the timestamp.
+	 *
+	 * @var array<string, array{back: string, noContent: string, subpagesHeading: string, footer: string}>
+	 */
+	private const COPY = [
+		'muted' => [
+			'back' => '← Back',
+			'noContent' => 'This page has no content yet.',
+			'subpagesHeading' => 'Pages',
+			'footer' => 'Generated %s UTC',
+		],
+		'colorful' => [
+			'back' => '← Back for more',
+			'noContent' => "Nothing here yet — this page is still blank. Go write something!",
+			'subpagesHeading' => 'Explore',
+			'footer' => 'Freshly generated %s UTC',
+		],
+	];
+
 	private string $siteTitle = 'Collectives lab';
+	private string $theme = 'muted';
 
 	public function __construct(
 		private MarkdownConverter $markdown = new MarkdownConverter(),
@@ -34,18 +60,30 @@ class SiteBuilder {
 	}
 
 	/**
+	 * @param array{theme?: string} $renderOptions Arbitrary per-build rendering
+	 *   options. Currently supported: `theme` (one of self::THEMES, default
+	 *   `muted`), selecting the color palette copied to `palette.css`.
 	 * @return int Number of rendered pages
 	 */
-	public function build(string $pagesDir, string $outDir, string $siteTitle = 'Collectives lab'): int {
+	public function build(string $pagesDir, string $outDir, string $siteTitle = 'Collectives lab', array $renderOptions = []): int {
 		$pagesDir = rtrim($pagesDir, '/');
 		if (!is_dir($pagesDir)) {
 			throw new RuntimeException("Pages directory not found: {$pagesDir}");
 		}
 
+		$theme = $renderOptions['theme'] ?? 'muted';
+		if (!in_array($theme, self::THEMES, true)) {
+			throw new RuntimeException(
+				"Unknown theme option: {$theme}. Valid themes: " . implode(', ', self::THEMES),
+			);
+		}
+
 		$this->siteTitle = $siteTitle;
+		$this->theme = $theme;
 		$this->ensureDir($outDir);
 		copy(__DIR__ . '/style.css', $outDir . '/style.css');
 		copy(__DIR__ . '/theme.js', $outDir . '/theme.js');
+		copy(__DIR__ . "/themes/{$theme}.css", $outDir . '/palette.css');
 
 		$pageCount = $this->renderDirectory($pagesDir, $outDir, 0, $siteTitle);
 		if ($pageCount === 0) {
@@ -98,7 +136,7 @@ class SiteBuilder {
 		}
 		$main .= $this->subPageList($children);
 		if ($main === '') {
-			$main = '<p>This page has no content yet.</p>';
+			$main = '<p>' . $this->copy('noContent') . '</p>';
 		}
 
 		$this->writePage($outDir, $title, $depth, $main);
@@ -165,7 +203,11 @@ class SiteBuilder {
 			$items .= '<li><a href="' . $name . '/">' . $name . '</a></li>';
 		}
 
-		return '<nav class="subpages"><h2>Pages</h2><ul>' . $items . '</ul></nav>';
+		return '<nav class="subpages"><h2>' . $this->copy('subpagesHeading') . '</h2><ul>' . $items . '</ul></nav>';
+	}
+
+	private function copy(string $key): string {
+		return self::COPY[$this->theme][$key];
 	}
 
 	private function writePage(string $outDir, string $title, int $depth, string $main): void {
@@ -174,11 +216,12 @@ class SiteBuilder {
 		$title = $this->e($title);
 		$siteTitle = $this->e($this->siteTitle);
 		$root = $depth === 0 ? './' : str_repeat('../', $depth);
+		$palette = str_repeat('../', $depth) . 'palette.css';
 		$stylesheet = str_repeat('../', $depth) . 'style.css';
 		$themeScript = str_repeat('../', $depth) . 'theme.js';
-		$timestamp = gmdate('Y-m-d H:i:s');
+		$footer = sprintf($this->copy('footer'), gmdate('Y-m-d H:i:s'));
 		// Every page except the root sits one level under its parent index.
-		$back = $depth > 0 ? '<a class="back" href="../">← Back</a>' : '';
+		$back = $depth > 0 ? '<a class="back" href="../">' . $this->copy('back') . '</a>' : '';
 
 		$html = <<<HTML
 <!doctype html>
@@ -188,6 +231,7 @@ class SiteBuilder {
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<meta name="generator" content="ssg-lab">
 		<title>{$title}</title>
+		<link rel="stylesheet" href="{$palette}">
 		<link rel="stylesheet" href="{$stylesheet}">
 		<!-- Blocking on purpose: sets the theme before the first paint. -->
 		<script src="{$themeScript}"></script>
@@ -210,7 +254,7 @@ class SiteBuilder {
 			{$main}
 		</main>
 		<footer>
-			Generated {$timestamp} UTC
+			{$footer}
 		</footer>
 	</body>
 </html>

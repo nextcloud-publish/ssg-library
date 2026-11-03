@@ -27,13 +27,16 @@ For quick local iteration, `bin/build-site.php` builds a site straight from
 the terminal:
 
 ```sh
-bin/build-site.php <pages-dir> <out-dir> [site-title]
+bin/build-site.php <pages-dir> <out-dir> [site-title] [theme]
 ```
+
+`[theme]` is `muted` (default) or `colorful` — see `renderOptions['theme']`
+below.
 
 Try it against the sample export in `examples/pages`:
 
 ```sh
-bin/build-site.php examples/pages examples/output "Sample Site"
+bin/build-site.php examples/pages examples/output "Sample Site" colorful
 ```
 
 Then serve it with PHP's built-in server rather than opening the file
@@ -53,7 +56,9 @@ gitignored, so re-running the command is always safe.
 use SsgLab\SiteBuilder;
 
 $builder = new SiteBuilder();
-$pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective');
+$pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', renderOptions: [
+    'theme' => 'colorful',
+]);
 ```
 
 - `$pagesDir` is the root of a Collectives export: each folder is a page whose
@@ -63,8 +68,16 @@ $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective');
 - `$outDir` is where the static site is written. Each folder becomes
   `<name>/index.html`; each leaf `.md` file becomes `<name>/index.html` one
   level below its folder.
+- `$renderOptions` is optional and defaults to `[]`. Currently supported key:
+  - `theme` — `'muted'` (default) or `'colorful'`. Selects which color
+    palette (`src/themes/*.css`) is copied to the output as `palette.css` —
+    both support the existing client-side light/dark toggle the same way,
+    `theme` only changes which colors it switches between — and gives the
+    static page chrome (back link, sub-page nav heading, empty-page message,
+    footer) a slightly more playful wording to match.
 - `build()` returns the number of rendered pages, and throws a
-  `RuntimeException` if `$pagesDir` doesn't exist or contains no `.md` files.
+  `RuntimeException` if `$pagesDir` doesn't exist, contains no `.md` files, or
+  `renderOptions['theme']` isn't a recognized value.
 
 Markdown is converted with league/commonmark (raw HTML allowed, unsafe links
 disallowed), run through HTMLPurifier to strip anything unsafe, and includes:

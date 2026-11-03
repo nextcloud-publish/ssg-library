@@ -1,0 +1,38 @@
+/*
+ * Default palette: the cool, low-saturation grey/blue tones the site shipped
+ * with originally — plain, tight typography and sharp corners to match. See
+ * `colorful.css` for the alternate `theme` option.
+ */
+:root {
+	--bg: light-dark(#fdfdfc, #14171a);
+	--bg-sunken: light-dark(#f6f6f4, #1b1f23);
+	--bg-raised: light-dark(#fff, #1a1e22);
+	--text: light-dark(#23282d, #dfe3e6);
+	--text-muted: light-dark(#6b7178, #9aa3ab);
+	--border: light-dark(#e2e2de, #2c3237);
+	--border-strong: light-dark(#c9c9c3, #3d444b);
+	--link: light-dark(#1e5fa8, #8ab4f8);
+	--link-visited: light-dark(#6b4ba1, #c3a6e8);
+	--accent: light-dark(#0082c9, #4dabdf);
+
+	/* Syntax highlighting tokens (see the `hljs-*` rules in style.css). */
+	--hl-comment: light-dark(#7c848c, #7f8892);
+	--hl-keyword: light-dark(#a12ba0, #c678dd);
+	--hl-string: light-dark(#3f8c3f, #98c379);
+	--hl-number: light-dark(#99671a, #d19a66);
+	--hl-title: light-dark(#2b62b8, #61afef);
+	--hl-type: light-dark(#9a6d13, #e5c07b);
+	--hl-variable: light-dark(#cf4436, #e06c75);
+	--hl-addition: light-dark(#2f7d32, #8fc98f);
+	--hl-deletion: light-dark(#c03d31, #e8878f);
+
+	/* Layout/typography tokens — see `style.css`'s comment for how these are used. */
+	--serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+	--sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+	--mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+	--measure: 46rem;
+	--radius: 6px;
+	--heading-weight: 400;
+	--accent-bar-width: 3.5rem;
+	--accent-bar-height: 2px;
+}
