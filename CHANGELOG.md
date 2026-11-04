@@ -1,0 +1,34 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-11-04
+
+### Added
+
+- `SsgLab\SiteBuilder::build()` converts a Nextcloud Collectives page export into a static HTML
+  site: each folder's `Readme.md` becomes that folder's page, other `.md` files become leaf
+  sub-pages rendered one directory level deeper, and `.attachments.<id>/` directories are copied
+  verbatim with their inline links rewritten.
+- `$renderOptions['theme']` (`muted` default, or `colorful`) picks a color palette from
+  `src/themes/`, with matching UI chrome copy, exposed as a CLI flag on `bin/build-site.php`.
+- `SsgLab\InputSanitizer` normalizes raw Markdown bytes before parsing (BOM strip, null bytes,
+  CRLF/CR to LF, invalid UTF-8 fallback).
+- `SsgLab\MarkdownConverter` renders Markdown via league/commonmark (`html_input: allow`,
+  `allow_unsafe_links: false`) and pipes the result through HTMLPurifier as the XSS boundary,
+  with an allowance for the `<input type=checkbox>` produced by `TaskListExtension`. Supports
+  `<details>`/`<summary>` blocks.
+- `MultilineTablePreprocessor` converts MultiMarkdown-style multiline tables (as produced by
+  Nextcloud Text) into HTML tables before the main CommonMark pass.
+- `FencedCodeRenderer` adds server-side syntax highlighting to fenced code blocks via
+  scrivo/highlight.php, matching Nextcloud Text's `hljs-*` class names, falling back to escaped
+  plain text on any highlighting failure.
+- `NonImageEmbedRewriter` rewrites Markdown image embeds whose target isn't actually an image
+  (Nextcloud Text embeds every attachment as an image regardless of type) into links, reusing the
+  alt text or falling back to the file name.
+- `bin/build-site.php` CLI entry point and example pages under `examples/` for local iteration.
+
+[0.1.0]: https://github.com/nextcloud-publish/ssg-library/releases/tag/0.1.0
