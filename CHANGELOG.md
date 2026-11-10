@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-11
+
 ### Changed
 
 - `build()` takes `$renderOptions` as any value decoded from JSON with `assoc: true`, default
@@ -42,5 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alt text or falling back to the file name.
 - `bin/build-site.php` CLI entry point and example pages under `examples/` for local iteration.
 
-[Unreleased]: https://github.com/nextcloud-publish/ssg-library/compare/0.1.0...HEAD
+[Unreleased]: https://github.com/nextcloud-publish/ssg-library/compare/0.2.0...HEAD
+[0.2.0]: https://github.com/nextcloud-publish/ssg-library/releases/tag/0.2.0
 [0.1.0]: https://github.com/nextcloud-publish/ssg-library/releases/tag/0.1.0
