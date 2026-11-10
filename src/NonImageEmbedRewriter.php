@@ -93,6 +93,6 @@ class NonImageEmbedRewriter {
 	 * The path part of a URL, i.e. without any query string or fragment.
 	 */
 	private static function path(string $url): string {
-		return preg_split('/[?#]/', $url, 2)[0];
+		return substr($url, 0, strcspn($url, '?#'));
 	}
 }

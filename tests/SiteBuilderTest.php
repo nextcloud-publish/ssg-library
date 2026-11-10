@@ -63,7 +63,7 @@ class SiteBuilderTest extends TestCase {
 	}
 
 	/**
-	 * @return array<string, array{mixed, string}>
+	 * @return array<string, array{mixed, non-empty-string}>
 	 */
 	public static function invalidRenderOptions(): array {
 		return [
@@ -84,6 +84,9 @@ class SiteBuilderTest extends TestCase {
 		];
 	}
 
+	/**
+	 * @param non-empty-string $message The start of the expected exception message.
+	 */
 	#[DataProvider('invalidRenderOptions')]
 	public function testRejectsInvalidRenderOptionsBeforeWritingOutput(mixed $renderOptions, string $message): void {
 		try {

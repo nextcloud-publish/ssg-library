@@ -19,6 +19,12 @@ use SsgLab\SiteBuilder;
  *   bin/build-site.php <pages-dir> <out-dir> [site-title] [theme]
  */
 
+// PHP defines $argv only on the command line.
+if (!isset($argv)) {
+	fwrite(STDERR, "Run bin/build-site.php from the command line.\n");
+	exit(1);
+}
+
 [, $pagesDir, $outDir] = [...$argv, null, null, null];
 $siteTitle = $argv[3] ?? 'Collectives lab';
 $theme = $argv[4] ?? null;

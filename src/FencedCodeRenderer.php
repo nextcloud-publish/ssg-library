@@ -52,11 +52,14 @@ class FencedCodeRenderer implements NodeRendererInterface {
 		}
 
 		try {
-			$contents = $this->highlighter->highlight($language ?? '', $code)->value;
+			$highlighted = $this->highlighter->highlight($language ?? '', $code)->value;
 		} catch (\Throwable) {
 			// Unknown language, or the highlighter choked on the snippet.
-			$contents = htmlspecialchars($code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+			$highlighted = null;
 		}
+		$contents = is_string($highlighted)
+			? $highlighted
+			: htmlspecialchars($code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
 		return new HtmlElement(
 			'pre',

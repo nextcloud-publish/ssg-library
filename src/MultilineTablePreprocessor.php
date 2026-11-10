@@ -146,11 +146,11 @@ class MultilineTablePreprocessor {
 			$left = $previous[$i] ?? '';
 			$right = $next[$i] ?? '';
 			if (trim($right) === '') {
-				$merged[$i] = $left;
+				$merged[] = $left;
 			} elseif (trim($left) === '') {
-				$merged[$i] = $right;
+				$merged[] = $right;
 			} else {
-				$merged[$i] = rtrim($left) . "\n" . $right;
+				$merged[] = rtrim($left) . "\n" . $right;
 			}
 		}
 

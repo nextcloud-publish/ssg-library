@@ -37,6 +37,9 @@ class MarkdownConverterTest extends TestCase {
 		self::assertStringContainsString('<span class="hljs-', $html);
 	}
 
+	/**
+	 * @return array<string, array{string, string}>
+	 */
 	public static function provideFamousLanguages(): array {
 		return [
 			'python' => ['python', "def greet(name):\n    return f'hi {name}'"],
@@ -140,6 +143,9 @@ class MarkdownConverterTest extends TestCase {
 		self::assertStringNotContainsString('<a ', $html);
 	}
 
+	/**
+	 * @return array<string, array{string}>
+	 */
 	public static function provideImageUrls(): array {
 		return [
 			'png' => ['.attachments.1/photo.png'],
