@@ -139,6 +139,23 @@ Run a single test:
 vendor/bin/phpunit --filter testMethodName tests/MarkdownConverterTest.php
 ```
 
+Static analysis, PHPStan at level 10:
+
+```sh
+vendor/bin/phpstan analyse
+```
+
+[pre-commit](https://pre-commit.com) runs both, plus `composer validate`,
+`composer audit`, `php -l` and gitleaks, on every commit. Set it up once:
+
+```sh
+pre-commit install
+```
+
+CI runs the same checks on every pull request, and the tests on PHP 8.4 and
+8.5, each with the lowest and the highest dependency versions `composer.json`
+allows.
+
 ## License
 
 AGPL-3.0-or-later

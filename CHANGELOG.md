@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- PHPStan at level 10 over `src`, `tests` and `bin`.
+- pre-commit hooks that run the CI lint and test steps.
+- CI on pull requests: lint, dependency audit, PHPStan, and tests on PHP 8.4 and 8.5 with the
+  lowest and the highest dependencies.
+
 ## [0.2.0] - 2026-11-11
 
 ### Changed
