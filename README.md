@@ -30,8 +30,7 @@ the terminal:
 bin/build-site.php <pages-dir> <out-dir> [site-title] [theme]
 ```
 
-`[theme]` is `muted` (default) or `colorful` — see `renderOptions['theme']`
-below.
+`[theme]` is `muted` (default) or `colorful` — see [Render options](#render-options).
 
 Try it against the sample export in `examples/pages`:
 
@@ -68,16 +67,32 @@ $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', ren
 - `$outDir` is where the static site is written. Each folder becomes
   `<name>/index.html`; each leaf `.md` file becomes `<name>/index.html` one
   level below its folder.
-- `$renderOptions` is optional and defaults to `[]`. Currently supported key:
-  - `theme` — `'muted'` (default) or `'colorful'`. Selects which color
-    palette (`src/themes/*.css`) is copied to the output as `palette.css` —
-    both support the existing client-side light/dark toggle the same way,
-    `theme` only changes which colors it switches between — and gives the
-    static page chrome (back link, sub-page nav heading, empty-page message,
-    footer) a slightly more playful wording to match.
-- `build()` returns the number of rendered pages, and throws a
-  `RuntimeException` if `$pagesDir` doesn't exist, contains no `.md` files, or
-  `renderOptions['theme']` isn't a recognized value.
+- `$renderOptions` is optional and defaults to `null`; see
+  [Render options](#render-options).
+- `build()` returns the number of rendered pages. It throws an
+  `InvalidArgumentException` for invalid render options — checked first, before
+  `$pagesDir` is looked at and before anything is written — and a
+  `RuntimeException` if `$pagesDir` doesn't exist or contains no `.md` files.
+
+### Render options
+
+`$renderOptions` takes the value as decoded from JSON, unchecked by the caller:
+`null`, or a JSON object of the keys below, decoded with `assoc: true` so it
+arrives as an associative array (an empty object decodes to `[]`, so `[]` is
+accepted as well):
+
+| Key     | Type   | Default | Values                |
+| ------- | ------ | ------- | --------------------- |
+| `theme` | string | `muted` | `muted` or `colorful` |
+
+`theme` selects the color palette (`src/themes/*.css`) copied to the output as
+`palette.css`, and gives the page chrome (back link, sub-page heading,
+empty-page message, footer) a matching wording. Both palettes support the
+light/dark toggle.
+
+Anything else — a value that is not an object, an unknown key, or a value
+outside the list — throws an `InvalidArgumentException` whose message names the
+problem.
 
 Markdown is converted with league/commonmark (raw HTML allowed, unsafe links
 disallowed), run through HTMLPurifier to strip anything unsafe, and includes:
