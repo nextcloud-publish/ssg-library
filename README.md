@@ -145,8 +145,16 @@ Static analysis, PHPStan at level 10:
 vendor/bin/phpstan analyse
 ```
 
-[pre-commit](https://pre-commit.com) runs both, plus `composer validate`,
-`composer audit`, `php -l` and gitleaks, on every commit. Set it up once:
+Code style, PSR-12, checked and fixed with PHP-CS-Fixer:
+
+```sh
+vendor/bin/php-cs-fixer check --diff
+vendor/bin/php-cs-fixer fix
+```
+
+[pre-commit](https://pre-commit.com) runs the tests, PHPStan and the style
+check, plus `composer validate`, `composer audit`, `php -l` and gitleaks, on
+every commit. Set it up once:
 
 ```sh
 pre-commit install

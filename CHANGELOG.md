@@ -10,10 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - PHPStan at level 10 over `src`, `tests` and `bin`.
+- PHP-CS-Fixer checks `src`, `tests` and `bin` against PSR-12.
 - pre-commit hooks that run the CI lint and test steps.
 - CI on pull requests: lint, dependency audit, PHPStan, and tests on PHP 8.4 and 8.5 with the
   lowest and the highest dependencies.
 - A pushed version tag creates the GitHub release, with the version's CHANGELOG section as notes.
+
 ### Changed
 
 - Code is formatted to PSR-12: four spaces instead of tabs, braces of classes and methods on
