@@ -33,7 +33,7 @@ jobs:
             index($0, "## [" tag "]") == 1 { found = 1; next }
             found && (/^## \[/ || /^\[[^]]+\]: /) { exit }
             found { print }
-          ' CHANGELOG.md | sed -e '/./,$!d' > notes.md
+          ' CHANGELOG.md | sed -e '/./,$!d' -e :a -e '/^\n*$/{$d;N;ba' -e '}' > notes.md
           [ -s notes.md ] || { echo "::error::CHANGELOG.md has no section for $TAG"; exit 1; }
           grep -qxF "[$TAG]: https://github.com/$GITHUB_REPOSITORY/releases/tag/$TAG" CHANGELOG.md \
             || { echo "::error::CHANGELOG.md has no link for $TAG"; exit 1; }
