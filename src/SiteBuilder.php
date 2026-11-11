@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace SsgLab;
 
+use InvalidArgumentException;
 use RuntimeException;
+use stdClass;
 
 /**
  * Reads a Collectives-style page export from disk and renders it into a
@@ -25,8 +27,14 @@ use RuntimeException;
  * written sits, which is all that's needed to build its relative links.
  */
 class SiteBuilder {
+	/** @var list<string> The render option keys build() accepts. */
+	private const RENDER_OPTION_KEYS = ['theme'];
+
 	/** @var list<string> Valid `theme` render option values; file names under src/themes/. */
 	private const THEMES = ['muted', 'colorful'];
+
+	/** Theme used when the `theme` render option isn't given. */
+	private const DEFAULT_THEME = 'muted';
 
 	/**
 	 * Static UI chrome text, varied a bit per theme — `colorful` reads more
@@ -51,7 +59,7 @@ class SiteBuilder {
 	];
 
 	private string $siteTitle = 'Collectives lab';
-	private string $theme = 'muted';
+	private string $theme = self::DEFAULT_THEME;
 
 	public function __construct(
 		private MarkdownConverter $markdown = new MarkdownConverter(),
@@ -60,22 +68,20 @@ class SiteBuilder {
 	}
 
 	/**
-	 * @param array{theme?: string} $renderOptions Arbitrary per-build rendering
-	 *   options. Currently supported: `theme` (one of self::THEMES, default
-	 *   `muted`), selecting the color palette copied to `palette.css`.
+	 * @param mixed $renderOptions Per-build rendering options as decoded from
+	 *   JSON: null, or an object of the keys listed under "Render options" in
+	 *   the README. Checked before anything is written to $outDir.
 	 * @return int Number of rendered pages
+	 * @throws InvalidArgumentException if $renderOptions is not null or an object of supported keys and values
+	 * @throws RuntimeException if $pagesDir is missing or holds no .md file
 	 */
-	public function build(string $pagesDir, string $outDir, string $siteTitle = 'Collectives lab', array $renderOptions = []): int {
+	public function build(string $pagesDir, string $outDir, string $siteTitle = 'Collectives lab', mixed $renderOptions = null): int {
+		// Arguments first: they're the caller's own mistake and cheap to check.
+		$theme = $this->parseRenderOptions($renderOptions)['theme'] ?? self::DEFAULT_THEME;
+
 		$pagesDir = rtrim($pagesDir, '/');
 		if (!is_dir($pagesDir)) {
 			throw new RuntimeException("Pages directory not found: {$pagesDir}");
-		}
-
-		$theme = $renderOptions['theme'] ?? 'muted';
-		if (!in_array($theme, self::THEMES, true)) {
-			throw new RuntimeException(
-				"Unknown theme option: {$theme}. Valid themes: " . implode(', ', self::THEMES),
-			);
 		}
 
 		$this->siteTitle = $siteTitle;
@@ -91,6 +97,54 @@ class SiteBuilder {
 		}
 
 		return $pageCount;
+	}
+
+	/**
+	 * Returns the options given in $value, checked; an option that is not given is not in the result.
+	 * A JSON object is expected as an associative array, i.e. decoded with `assoc: true` — where an
+	 * empty object is indistinguishable from `[]`, so `[]` counts as an object too.
+	 *
+	 * @return array{theme?: string}
+	 * @throws InvalidArgumentException if $value is not null or an object of supported keys and values
+	 */
+	private function parseRenderOptions(mixed $value): array {
+		$value ??= [];
+		if (!is_array($value)) {
+			throw new InvalidArgumentException(
+				// stdClass means json_decode() ran without `assoc: true` — a caller-side slip
+				// worth naming, since every other non-array is a genuinely wrong value.
+				$value instanceof stdClass
+					? 'render_options must be decoded with assoc: true, got stdClass'
+					: 'render_options must be a JSON object, got ' . get_debug_type($value),
+			);
+		}
+		// A JSON array decodes to a list — and so does the (pathological) object with
+		// keys "0", "1", …, which lands here rather than on the unknown-key error below.
+		if ($value !== [] && array_is_list($value)) {
+			throw new InvalidArgumentException('render_options must be a JSON object, got a list');
+		}
+
+		// Numeric-string keys arrive as ints, hence strval() before comparing names.
+		$unknown = array_diff(array_map('strval', array_keys($value)), self::RENDER_OPTION_KEYS);
+		if ($unknown !== []) {
+			throw new InvalidArgumentException(
+				'Unknown render option: ' . implode(', ', $unknown) . '. Supported: ' . implode(', ', self::RENDER_OPTION_KEYS),
+			);
+		}
+
+		$options = [];
+
+		if (array_key_exists('theme', $value)) {
+			$theme = $value['theme'];
+			if (!is_string($theme) || !in_array($theme, self::THEMES, true)) {
+				throw new InvalidArgumentException(
+					'Invalid theme: ' . (is_string($theme) ? $theme : get_debug_type($theme)) . '. Valid themes: ' . implode(', ', self::THEMES),
+				);
+			}
+			$options['theme'] = $theme;
+		}
+
+		return $options;
 	}
 
 	/**

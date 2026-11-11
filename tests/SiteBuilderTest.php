@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace SsgLab\Tests;
 
+use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 use SsgLab\SiteBuilder;
 
 class SiteBuilderTest extends TestCase {
@@ -41,11 +42,65 @@ class SiteBuilderTest extends TestCase {
 		self::assertFileEquals(__DIR__ . '/../src/themes/colorful.css', $this->outDir . '/palette.css');
 	}
 
-	public function testRejectsUnknownTheme(): void {
-		$this->expectException(RuntimeException::class);
-		$this->expectExceptionMessage('Unknown theme option: neon');
+	/**
+	 * Both shapes that mean "no option given": an explicit null, and an empty JSON object, which
+	 * decodes to [].
+	 *
+	 * @return array<string, array{mixed}>
+	 */
+	public static function emptyRenderOptions(): array {
+		return [
+			'null' => [null],
+			'empty array' => [[]],
+		];
+	}
 
-		(new SiteBuilder())->build($this->pagesDir, $this->outDir, renderOptions: ['theme' => 'neon']);
+	#[DataProvider('emptyRenderOptions')]
+	public function testEmptyRenderOptionsDefaultToMutedTheme(mixed $renderOptions): void {
+		(new SiteBuilder())->build($this->pagesDir, $this->outDir, renderOptions: $renderOptions);
+
+		self::assertFileEquals(__DIR__ . '/../src/themes/muted.css', $this->outDir . '/palette.css');
+	}
+
+	/**
+	 * @return array<string, array{mixed, string}>
+	 */
+	public static function invalidRenderOptions(): array {
+		return [
+			'string' => ['colorful', 'render_options must be a JSON object, got string'],
+			'list' => [['colorful'], 'render_options must be a JSON object, got a list'],
+			'unknown key' => [['them' => 'colorful'], 'Unknown render option: them. Supported: theme'],
+			'several unknown keys' => [
+				['them' => 'colorful', 'palette' => 'muted'],
+				'Unknown render option: them, palette. Supported: theme',
+			],
+			'stdClass' => [
+				json_decode('{"theme": "colorful"}'),
+				'render_options must be decoded with assoc: true, got stdClass',
+			],
+			'unknown theme' => [['theme' => 'neon'], 'Invalid theme: neon. Valid themes: muted, colorful'],
+			'non-string theme' => [['theme' => ['colorful']], 'Invalid theme: array'],
+			'null theme' => [['theme' => null], 'Invalid theme: null'],
+		];
+	}
+
+	#[DataProvider('invalidRenderOptions')]
+	public function testRejectsInvalidRenderOptionsBeforeWritingOutput(mixed $renderOptions, string $message): void {
+		try {
+			(new SiteBuilder())->build($this->pagesDir, $this->outDir, renderOptions: $renderOptions);
+			self::fail('Expected an InvalidArgumentException');
+		} catch (InvalidArgumentException $e) {
+			self::assertStringStartsWith($message, $e->getMessage());
+		}
+
+		self::assertDirectoryDoesNotExist($this->outDir);
+	}
+
+	public function testRejectsInvalidRenderOptionsBeforeCheckingPagesDir(): void {
+		$this->expectException(InvalidArgumentException::class);
+		$this->expectExceptionMessage('Invalid theme: neon');
+
+		(new SiteBuilder())->build($this->pagesDir . '-missing', $this->outDir, renderOptions: ['theme' => 'neon']);
 	}
 
 	private function removeDir(string $dir): void {
