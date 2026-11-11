@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - pre-commit hooks that run the CI lint and test steps.
 - CI on pull requests: lint, dependency audit, PHPStan, and tests on PHP 8.4 and 8.5 with the
   lowest and the highest dependencies.
+- A pushed version tag creates the GitHub release, with the version's CHANGELOG section as notes.
 
 ## [0.2.0] - 2026-11-11
 

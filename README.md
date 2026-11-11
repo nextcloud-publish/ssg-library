@@ -156,6 +156,23 @@ CI runs the same checks on every pull request, and the tests on PHP 8.4 and
 8.5, each with the lowest and the highest dependency versions `composer.json`
 allows.
 
+## Releases
+
+A release is a tag like `1.2.3`, without a leading `v`, on `main`:
+
+1. In the release PR, turn `## [Unreleased]` in `CHANGELOG.md` into a version
+   section and add its link at the bottom.
+2. After the merge, tag `main` and push the tag:
+
+   ```sh
+   git tag -a 1.2.3
+   git push origin 1.2.3
+   ```
+
+CI then creates the GitHub release with that CHANGELOG section as its notes.
+It fails, and creates nothing, if the tag is not on `main` or `CHANGELOG.md`
+has no section or link for it. Composer reads the version from the tag.
+
 ## License
 
 AGPL-3.0-or-later
