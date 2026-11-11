@@ -4,3 +4,4 @@ composer.lock
 examples/output/
 
 CLAUDE.md
+.php-cs-fixer.cache
