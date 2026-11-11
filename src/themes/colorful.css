@@ -10,34 +10,34 @@
  * are used.
  */
 :root {
-	--bg: light-dark(#fffdf7, #15111f);
-	--bg-sunken: light-dark(#fbf3e4, #1f1830);
-	--bg-raised: light-dark(#fffefb, #241c38);
-	--text: light-dark(#231c15, #ede6f7);
-	--text-muted: light-dark(#7a6a52, #b3a3cf);
-	--border: light-dark(#f0ddb8, #3a2d52);
-	--border-strong: light-dark(#dcbd82, #52406e);
-	--link: light-dark(#c0147a, #ff6ec7);
-	--link-visited: light-dark(#7d3fc9, #b98bf0);
-	--accent: light-dark(#ff5e1a, #ff8a4d);
+    --bg: light-dark(#fffdf7, #15111f);
+    --bg-sunken: light-dark(#fbf3e4, #1f1830);
+    --bg-raised: light-dark(#fffefb, #241c38);
+    --text: light-dark(#231c15, #ede6f7);
+    --text-muted: light-dark(#7a6a52, #b3a3cf);
+    --border: light-dark(#f0ddb8, #3a2d52);
+    --border-strong: light-dark(#dcbd82, #52406e);
+    --link: light-dark(#c0147a, #ff6ec7);
+    --link-visited: light-dark(#7d3fc9, #b98bf0);
+    --accent: light-dark(#ff5e1a, #ff8a4d);
 
-	/* Syntax highlighting tokens (see the `hljs-*` rules in style.css). */
-	--hl-comment: light-dark(#9c8a6a, #a393c2);
-	--hl-keyword: light-dark(#d6177e, #ff6ec7);
-	--hl-string: light-dark(#0f9d58, #5fe08f);
-	--hl-number: light-dark(#e07c1a, #ffb454);
-	--hl-title: light-dark(#1a7fd6, #6ec8ff);
-	--hl-type: light-dark(#c9731a, #ffcb6b);
-	--hl-variable: light-dark(#e0324a, #ff7a90);
-	--hl-addition: light-dark(#1f9d55, #8ef0a8);
-	--hl-deletion: light-dark(#d6303d, #ff8a93);
+    /* Syntax highlighting tokens (see the `hljs-*` rules in style.css). */
+    --hl-comment: light-dark(#9c8a6a, #a393c2);
+    --hl-keyword: light-dark(#d6177e, #ff6ec7);
+    --hl-string: light-dark(#0f9d58, #5fe08f);
+    --hl-number: light-dark(#e07c1a, #ffb454);
+    --hl-title: light-dark(#1a7fd6, #6ec8ff);
+    --hl-type: light-dark(#c9731a, #ffcb6b);
+    --hl-variable: light-dark(#e0324a, #ff7a90);
+    --hl-addition: light-dark(#1f9d55, #8ef0a8);
+    --hl-deletion: light-dark(#d6303d, #ff8a93);
 
-	--serif: Georgia, "Hoefler Text", "Iowan Old Style", "Palatino Linotype", serif;
-	--sans: ui-rounded, "Segoe UI", system-ui, -apple-system, Verdana, sans-serif;
-	--mono: "Cascadia Code", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-	--measure: 50rem;
-	--radius: 16px;
-	--heading-weight: 600;
-	--accent-bar-width: 5rem;
-	--accent-bar-height: 4px;
+    --serif: Georgia, "Hoefler Text", "Iowan Old Style", "Palatino Linotype", serif;
+    --sans: ui-rounded, "Segoe UI", system-ui, -apple-system, Verdana, sans-serif;
+    --mono: "Cascadia Code", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --measure: 50rem;
+    --radius: 16px;
+    --heading-weight: 600;
+    --accent-bar-width: 5rem;
+    --accent-bar-height: 4px;
 }

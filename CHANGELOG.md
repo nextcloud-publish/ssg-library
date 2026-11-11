@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI on pull requests: lint, dependency audit, PHPStan, and tests on PHP 8.4 and 8.5 with the
   lowest and the highest dependencies.
 - A pushed version tag creates the GitHub release, with the version's CHANGELOG section as notes.
+### Changed
+
+- Code is formatted to PSR-12: four spaces instead of tabs, braces of classes and methods on
+  their own line. The generated HTML is indented with spaces.
 
 ## [0.2.0] - 2026-11-11
 

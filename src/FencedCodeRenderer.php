@@ -28,57 +28,61 @@ use League\CommonMark\Util\HtmlElement;
  * Highlighting is best-effort: an unknown or missing language falls back to
  * a plain escaped code block, so nothing is ever lost to a failed lookup.
  */
-class FencedCodeRenderer implements NodeRendererInterface {
-	private Highlighter $highlighter;
+class FencedCodeRenderer implements NodeRendererInterface
+{
+    private Highlighter $highlighter;
 
-	public function __construct() {
-		$this->highlighter = new Highlighter();
-	}
+    public function __construct()
+    {
+        $this->highlighter = new Highlighter();
+    }
 
-	public function render(Node $node, ChildNodeRendererInterface $childRenderer): HtmlElement {
-		if (!$node instanceof FencedCode) {
-			throw new \InvalidArgumentException('Expected a FencedCode node');
-		}
+    public function render(Node $node, ChildNodeRendererInterface $childRenderer): HtmlElement
+    {
+        if (!$node instanceof FencedCode) {
+            throw new \InvalidArgumentException('Expected a FencedCode node');
+        }
 
-		$code = $node->getLiteral();
-		$language = $this->languageOf($node);
+        $code = $node->getLiteral();
+        $language = $this->languageOf($node);
 
-		$classes = ['hljs'];
-		if ($language !== null) {
-			// The class keeps the name as written in the fence, not the one
-			// the highlighter resolves aliases to (`csharp`, not `cs`), so it
-			// stays the `language-` class CommonMark would have emitted.
-			$classes[] = 'language-' . $language;
-		}
+        $classes = ['hljs'];
+        if ($language !== null) {
+            // The class keeps the name as written in the fence, not the one
+            // the highlighter resolves aliases to (`csharp`, not `cs`), so it
+            // stays the `language-` class CommonMark would have emitted.
+            $classes[] = 'language-' . $language;
+        }
 
-		try {
-			$highlighted = $this->highlighter->highlight($language ?? '', $code)->value;
-		} catch (\Throwable) {
-			// Unknown language, or the highlighter choked on the snippet.
-			$highlighted = null;
-		}
-		$contents = is_string($highlighted)
-			? $highlighted
-			: htmlspecialchars($code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        try {
+            $highlighted = $this->highlighter->highlight($language ?? '', $code)->value;
+        } catch (\Throwable) {
+            // Unknown language, or the highlighter choked on the snippet.
+            $highlighted = null;
+        }
+        $contents = is_string($highlighted)
+            ? $highlighted
+            : htmlspecialchars($code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
-		return new HtmlElement(
-			'pre',
-			[],
-			new HtmlElement('code', ['class' => implode(' ', $classes)], $contents),
-		);
-	}
+        return new HtmlElement(
+            'pre',
+            [],
+            new HtmlElement('code', ['class' => implode(' ', $classes)], $contents),
+        );
+    }
 
-	/**
-	 * The info string may carry more than the language (```php title="x"),
-	 * so only its first word counts — that is what CommonMark itself uses
-	 * for the `language-` class.
-	 */
-	private function languageOf(FencedCode $node): ?string {
-		$words = $node->getInfoWords();
-		if ($words === [] || $words[0] === '') {
-			return null;
-		}
+    /**
+     * The info string may carry more than the language (```php title="x"),
+     * so only its first word counts — that is what CommonMark itself uses
+     * for the `language-` class.
+     */
+    private function languageOf(FencedCode $node): ?string
+    {
+        $words = $node->getInfoWords();
+        if ($words === [] || $words[0] === '') {
+            return null;
+        }
 
-		return strtolower($words[0]);
-	}
+        return strtolower($words[0]);
+    }
 }

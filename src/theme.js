@@ -13,66 +13,66 @@
  * first paint; deferring it would flash a light page at dark-theme visitors.
  */
 (function () {
-	'use strict';
+    'use strict';
 
-	var KEY = 'ssg-lab-theme';
-	var root = document.documentElement;
-	var prefersDark = matchMedia('(prefers-color-scheme: dark)');
+    var KEY = 'ssg-lab-theme';
+    var root = document.documentElement;
+    var prefersDark = matchMedia('(prefers-color-scheme: dark)');
 
-	// localStorage throws rather than no-ops in some privacy modes, so both
-	// accesses are guarded: a blocked store must not take the page down.
-	function readSaved() {
-		try {
-			return localStorage.getItem(KEY);
-		} catch (error) {
-			return null;
-		}
-	}
+    // localStorage throws rather than no-ops in some privacy modes, so both
+    // accesses are guarded: a blocked store must not take the page down.
+    function readSaved() {
+        try {
+            return localStorage.getItem(KEY);
+        } catch (error) {
+            return null;
+        }
+    }
 
-	function save(theme) {
-		try {
-			localStorage.setItem(KEY, theme);
-		} catch (error) {
-			// The choice just won't outlive this page.
-		}
-	}
+    function save(theme) {
+        try {
+            localStorage.setItem(KEY, theme);
+        } catch (error) {
+            // The choice just won't outlive this page.
+        }
+    }
 
-	function setTheme(theme) {
-		root.dataset.theme = theme;
-	}
+    function setTheme(theme) {
+        root.dataset.theme = theme;
+    }
 
-	function systemTheme() {
-		return prefersDark.matches ? 'dark' : 'light';
-	}
+    function systemTheme() {
+        return prefersDark.matches ? 'dark' : 'light';
+    }
 
-	setTheme(readSaved() || systemTheme());
+    setTheme(readSaved() || systemTheme());
 
-	prefersDark.addEventListener('change', function () {
-		if (!readSaved()) {
-			setTheme(systemTheme());
-		}
-	});
+    prefersDark.addEventListener('change', function () {
+        if (!readSaved()) {
+            setTheme(systemTheme());
+        }
+    });
 
-	document.addEventListener('DOMContentLoaded', function () {
-		var button = document.querySelector('.theme-toggle');
+    document.addEventListener('DOMContentLoaded', function () {
+        var button = document.querySelector('.theme-toggle');
 
-		function describe() {
-			button.setAttribute(
-				'aria-label',
-				root.dataset.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
-			);
-		}
+        function describe() {
+            button.setAttribute(
+                'aria-label',
+                root.dataset.theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme',
+            );
+        }
 
-		// Ships hidden in the HTML: without this script the button cannot
-		// work, so a no-JS visitor should never see it.
-		button.hidden = false;
-		describe();
+        // Ships hidden in the HTML: without this script the button cannot
+        // work, so a no-JS visitor should never see it.
+        button.hidden = false;
+        describe();
 
-		button.addEventListener('click', function () {
-			var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
-			setTheme(next);
-			save(next);
-			describe();
-		});
-	});
+        button.addEventListener('click', function () {
+            var next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+            setTheme(next);
+            save(next);
+            describe();
+        });
+    });
 })();
