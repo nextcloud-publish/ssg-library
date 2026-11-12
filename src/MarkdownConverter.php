@@ -81,15 +81,21 @@ class MarkdownConverter
         $def?->addElement('details', 'Block', 'Flow', 'Common', ['open' => 'Bool']);
         $def?->addElement('summary', 'Inline', 'Inline', 'Common');
 
+        // Nextcloud Text's callout boxes (`::: info` ... `:::`) render as a
+        // `<div class="callout callout-<type>" data-callout="<type>">`; the
+        // data-* attribute isn't part of HTMLPurifier's default definition,
+        // so it needs allow-listing too, same as above.
+        $def?->addAttribute('div', 'data-callout', 'Enum#info,warn,error,success,question');
+
         return new HTMLPurifier($config);
     }
 
     public function toHtml(string $content): string
     {
-        $content = MultilineTablePreprocessor::process(
-            $content,
-            fn (string $cell): string => $this->converter->convert($cell)->getContent(),
-        );
+        $renderBlock = fn (string $block): string => $this->converter->convert($block)->getContent();
+
+        $content = CalloutPreprocessor::process($content, $renderBlock);
+        $content = MultilineTablePreprocessor::process($content, $renderBlock);
 
         return $this->purifier->purify($this->converter->convert($content)->getContent());
     }
