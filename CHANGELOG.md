@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The release notes have one blank line before the CHANGELOG link instead of two.
 
+### Security
+
+- Sub-page links percent-encode the page or folder name. A name such as
+  `javascript:alert(1)` linked as a `javascript:` URL, and names containing `?`, `#` or `%`
+  linked to the wrong page.
+
 ## [0.3.0] - 2026-11-11
 
 ### Added
