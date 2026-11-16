@@ -59,6 +59,28 @@ class SiteBuilder
         ],
     ];
 
+    /**
+     * File extensions, lower-case, of the attachments copied to the output; any other file is
+     * left out. Everything in the output is served from the published origin, so an attachment
+     * a browser renders as a document or runs as script (HTML, SVG, JavaScript…) would run with
+     * that origin's privileges. Only types browsers don't execute are listed. SVG is left out
+     * until it can be sanitized.
+     *
+     * @var list<string>
+     */
+    private const ATTACHMENT_EXTENSIONS = [
+        // Images: NonImageEmbedRewriter::IMAGE_EXTENSIONS without svg and svgz.
+        'apng', 'avif', 'bmp', 'gif', 'heic', 'heif', 'ico', 'jfif', 'jpe', 'jpeg', 'jpg', 'png',
+        'tif', 'tiff', 'webp',
+        // Documents
+        'pdf', 'txt', 'csv', 'md', 'rtf', 'epub', 'odt', 'ods', 'odp', 'odg', 'doc', 'docx', 'xls',
+        'xlsx', 'ppt', 'pptx',
+        // Audio and video
+        'mp3', 'm4a', 'oga', 'ogg', 'opus', 'wav', 'flac', 'mp4', 'm4v', 'mov', 'ogv', 'webm',
+        // Archives
+        'zip', 'gz', 'tgz', 'tar', '7z',
+    ];
+
     private string $siteTitle = 'Collectives lab';
     private string $theme = self::DEFAULT_THEME;
 
@@ -205,7 +227,7 @@ class SiteBuilder
     /**
      * Splits a folder's entries into sub-folders and leaf `.md` files,
      * skipping `Readme.md` (rendered as the folder's own page) and
-     * `.attachments.*` directories (copied verbatim).
+     * `.attachments.*` directories (copied by copyDir()).
      *
      * @return array{list<string>, list<string>} sub-folder names, leaf file names
      */
@@ -338,21 +360,37 @@ HTML;
         }
     }
 
+    /**
+     * Copies an `.attachments.*` folder, sub-folders included, but only the files
+     * isPublishableAttachment() accepts; dot-entries are skipped at every level, files and
+     * folders alike. Skipped files are left out silently, so the build goes on.
+     */
     private function copyDir(string $from, string $to): void
     {
         $this->ensureDir($to);
         foreach (scandir($from) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
+            // Also covers `.` and `..`.
+            if (str_starts_with($entry, '.')) {
                 continue;
             }
             $source = $from . '/' . $entry;
             $dest = $to . '/' . $entry;
             if (is_dir($source)) {
                 $this->copyDir($source, $dest);
-            } else {
+            } elseif ($this->isPublishableAttachment($entry)) {
                 copy($source, $dest);
             }
         }
+    }
+
+    /**
+     * Whether an attachment file may be published: not a dotfile, and its last extension, in
+     * any case, is in self::ATTACHMENT_EXTENSIONS. A file without an extension is not.
+     */
+    private function isPublishableAttachment(string $name): bool
+    {
+        return !str_starts_with($name, '.')
+            && in_array(strtolower(pathinfo($name, PATHINFO_EXTENSION)), self::ATTACHMENT_EXTENSIONS, true);
     }
 
     private function e(string $value): string

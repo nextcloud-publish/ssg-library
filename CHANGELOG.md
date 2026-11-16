@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sub-page links percent-encode the page or folder name. A name such as
   `javascript:alert(1)` linked as a `javascript:` URL, and names containing `?`, `#` or `%`
   linked to the wrong page.
+- Attachments are published only for an allowlist of file types (images, PDF, office
+  documents, text, audio/video, archives); dotfiles and everything else, including HTML, SVG
+  and JavaScript, are left out. They were copied verbatim and could run script on the
+  published site.
 
 ## [0.3.0] - 2026-11-11
 
