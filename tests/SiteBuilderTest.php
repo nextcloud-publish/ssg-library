@@ -180,6 +180,84 @@ class SiteBuilderTest extends TestCase
         self::assertSame($name, $links[$href]);
     }
 
+    /**
+     * Paths relative to `.attachments.1/`.
+     *
+     * @return array<string, array{non-empty-string}>
+     */
+    public static function allowlistedAttachments(): array
+    {
+        return [
+            'image' => ['photo.png'],
+            'upper-case extension' => ['PHOTO.JPG'],
+            'PDF' => ['report.pdf'],
+            'CSV' => ['notes.csv'],
+            'video' => ['clip.mp4'],
+            'only the last extension counts' => ['x.html.png'],
+            'nested' => ['sub/photo.png'],
+        ];
+    }
+
+    #[DataProvider('allowlistedAttachments')]
+    public function testPublishesAllowlistedAttachments(string $path): void
+    {
+        $this->writeAttachment($path);
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        self::assertFileEquals(
+            $this->pagesDir . '/.attachments.1/' . $path,
+            $this->outDir . '/.attachments.1/' . $path,
+        );
+    }
+
+    /**
+     * Paths relative to `.attachments.1/`: types a browser renders as a document or runs as
+     * script, server config dotfiles, files without an extension, and anything in a dot-folder.
+     *
+     * @return array<string, array{non-empty-string}>
+     */
+    public static function scriptCapableAttachments(): array
+    {
+        return [
+            'HTML' => ['index.html'],
+            'HTM' => ['x.htm'],
+            'XHTML' => ['x.xhtml'],
+            'XML' => ['x.xml'],
+            'SVG' => ['x.svg'],
+            'upper-case SVG' => ['x.SVG'],
+            'SVGZ' => ['x.svgz'],
+            'JavaScript' => ['x.js'],
+            'JavaScript module' => ['x.mjs'],
+            'PHP' => ['shell.php'],
+            '.htaccess' => ['.htaccess'],
+            '.user.ini' => ['.user.ini'],
+            'no extension' => ['noextension'],
+            'nested HTML' => ['sub/index.html'],
+            'image in a dot-folder' => ['.hidden/photo.png'],
+        ];
+    }
+
+    #[DataProvider('scriptCapableAttachments')]
+    public function testSkipsAttachmentsThatCouldRunScript(string $path): void
+    {
+        $this->writeAttachment($path);
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        self::assertFileDoesNotExist($this->outDir . '/.attachments.1/' . $path);
+        self::assertFileExists($this->outDir . '/index.html');
+    }
+
+    private function writeAttachment(string $relativePath): void
+    {
+        $path = $this->pagesDir . '/.attachments.1/' . $relativePath;
+        if (!is_dir(dirname($path))) {
+            mkdir(dirname($path), 0o755, true);
+        }
+        file_put_contents($path, "content of {$relativePath}\n");
+    }
+
     private function writePageFile(string $relativePath): void
     {
         $path = $this->pagesDir . '/' . $relativePath;
