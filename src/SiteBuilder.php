@@ -252,7 +252,7 @@ class SiteBuilder
     }
 
     /**
-     * @param list<string> $children Sub-page names, linked as `<name>/`
+     * @param list<string> $children Sub-page names, linked as `<url-encoded name>/`
      */
     private function subPageList(array $children): string
     {
@@ -262,8 +262,11 @@ class SiteBuilder
 
         $items = '';
         foreach ($children as $child) {
-            $name = $this->e($child);
-            $items .= '<li><a href="' . $name . '/">' . $name . '</a></li>';
+            // Encoded as a URL path segment, not just HTML-escaped: `:` would let a
+            // name like `javascript:…` form a URL scheme, and `?`, `#`, `%` would
+            // point somewhere other than the directory written to disk.
+            // rawurlencode() only emits [A-Za-z0-9-_.~%], so the href needs no escaping.
+            $items .= '<li><a href="' . rawurlencode($child) . '/">' . $this->e($child) . '</a></li>';
         }
 
         return '<nav class="subpages"><h2>' . $this->copy('subpagesHeading') . '</h2><ul>' . $items . '</ul></nav>';

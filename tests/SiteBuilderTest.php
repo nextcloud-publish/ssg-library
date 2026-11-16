@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace SsgLab\Tests;
 
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -114,6 +117,95 @@ class SiteBuilderTest extends TestCase
         $this->expectExceptionMessage('Invalid theme: neon');
 
         (new SiteBuilder())->build($this->pagesDir . '-missing', $this->outDir, renderOptions: ['theme' => 'neon']);
+    }
+
+    /**
+     * A sub-page named like a URL scheme, once as a folder and once as a leaf page.
+     *
+     * @return array<string, array{non-empty-string, non-empty-string}>
+     */
+    public static function schemeLikeSubPages(): array
+    {
+        return [
+            'folder' => ['javascript:alert(1)%2F%2F/Readme.md', 'javascript:alert(1)%2F%2F'],
+            'leaf page' => ['javascript:alert(1)%2F%2F.md', 'javascript:alert(1)%2F%2F'],
+        ];
+    }
+
+    #[DataProvider('schemeLikeSubPages')]
+    public function testSubPageLinkCannotCarryAUrlScheme(string $file, string $name): void
+    {
+        $this->writePageFile($file);
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        $links = $this->subPageLinks();
+        foreach (array_keys($links) as $href) {
+            self::assertDoesNotMatchRegularExpression('/^[a-z][a-z0-9+.-]*:/i', $href);
+        }
+        self::assertSame(['javascript%3Aalert%281%29%252F%252F/' => $name], $links);
+    }
+
+    /**
+     * Folder names with characters that mean something in a URL or in HTML.
+     *
+     * @return array<string, array{non-empty-string}>
+     */
+    public static function subPageNamesNeedingEncoding(): array
+    {
+        return [
+            'query' => ['a?b'],
+            'fragment' => ['a#b'],
+            'percent' => ['100%'],
+            'encoded slash' => ['a%2Fb'],
+            'double quotes' => ['say "hi"'],
+            'angle bracket' => ['a<b'],
+            'space' => ['two words'],
+            'non-ASCII' => ['Über uns'],
+        ];
+    }
+
+    #[DataProvider('subPageNamesNeedingEncoding')]
+    public function testSubPageLinkResolvesToTheRenderedPage(string $name): void
+    {
+        $this->writePageFile($name . '/Readme.md');
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        $links = $this->subPageLinks();
+        self::assertCount(1, $links);
+        $href = (string)array_key_first($links);
+        self::assertSame(rawurlencode($name) . '/', $href);
+        self::assertFileExists($this->outDir . '/' . rawurldecode(rtrim($href, '/')) . '/index.html');
+        self::assertSame($name, $links[$href]);
+    }
+
+    private function writePageFile(string $relativePath): void
+    {
+        $path = $this->pagesDir . '/' . $relativePath;
+        if (!is_dir(dirname($path))) {
+            mkdir(dirname($path), 0o755, true);
+        }
+        file_put_contents($path, "# Page\n");
+    }
+
+    /**
+     * @return array<string, string> The root page's sub-page links, href => link text
+     */
+    private function subPageLinks(): array
+    {
+        $document = new DOMDocument();
+        // libxml reads HTML as ISO-8859-1 unless told otherwise.
+        $html = (string)file_get_contents($this->outDir . '/index.html');
+        @$document->loadHTML('<?xml encoding="UTF-8">' . $html);
+
+        $links = [];
+        foreach ((new DOMXPath($document))->query('//nav[@class="subpages"]//a') ?: [] as $link) {
+            self::assertInstanceOf(DOMElement::class, $link);
+            $links[$link->getAttribute('href')] = $link->textContent;
+        }
+
+        return $links;
     }
 
     private function removeDir(string $dir): void
