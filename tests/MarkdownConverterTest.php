@@ -227,6 +227,30 @@ class MarkdownConverterTest extends TestCase
         self::assertStringContainsString('text', $html);
     }
 
+    public function testPrefixesOnlyRelativeAttachmentPaths(): void
+    {
+        $html = $this->converter->toHtml(
+            '[a](.attachments.1/x.pdf) [b](sub/.attachments.1/x.pdf) '
+            . '[c](https://example.com/.attachments.1/x.pdf) [d](/.attachments.1/x.pdf)',
+            '../',
+        );
+
+        self::assertStringContainsString('<a href="../.attachments.1/x.pdf">a</a>', $html);
+        self::assertStringContainsString('<a href="sub/.attachments.1/x.pdf">b</a>', $html);
+        self::assertStringContainsString('<a href="https://example.com/.attachments.1/x.pdf" rel="nofollow">c</a>', $html);
+        self::assertStringContainsString('<a href="/.attachments.1/x.pdf">d</a>', $html);
+    }
+
+    public function testAttachmentPrefixAppliesToItsOwnCallOnly(): void
+    {
+        $this->converter->toHtml('[a](.attachments.1/x.pdf)', '../');
+
+        self::assertStringContainsString(
+            '<a href=".attachments.1/x.pdf">a</a>',
+            $this->converter->toHtml('[a](.attachments.1/x.pdf)'),
+        );
+    }
+
     public function testMarksExternalLinksNofollow(): void
     {
         $html = $this->converter->toHtml('[site](https://example.com/)');

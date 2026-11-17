@@ -7,9 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `MarkdownConverter::toHtml()` takes an optional `$attachmentPrefix`, prepended to links into
+  `.attachments.*` folders.
+
 ### Fixed
 
 - The release notes have one blank line before the CHANGELOG link instead of two.
+- On leaf pages, attachment paths are rewritten by HTMLPurifier instead of a regex over its
+  output. Text that looked like an attachment attribute, in prose or inline code, was rewritten
+  too, and CSS `url()` pointing at an attachment wasn't, so such backgrounds broke.
 
 ### Security
 
