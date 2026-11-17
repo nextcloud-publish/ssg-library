@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A page file named `..md` or `...md` fails the build with an `InvalidArgumentException`. Its
   page directory was `.` or `..`, so it was written over its folder's page or one directory up,
   from the root outside the output directory.
+- Symlinks, FIFOs, devices and sockets in the export are ignored. Symlinks were followed, so a
+  crafted archive could publish any file the build could read, and a link to `/dev/zero`, a
+  FIFO or a pair of links to their own folder could hang the build.
 
 ## [0.3.0] - 2026-11-11
 

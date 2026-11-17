@@ -8,7 +8,11 @@ use Dom\HTMLDocument;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
+use FilesystemIterator;
 use InvalidArgumentException;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use SsgLab\SiteBuilder;
@@ -24,8 +28,13 @@ class SiteBuilderTest extends TestCase
     /** Attributes a browser follows or loads as a URL. */
     private const URL_ATTRIBUTES = ['href', 'src', 'action', 'formaction', 'xlink:href'];
 
+    /** Content of the files outside the export that symlink fixtures point at. */
+    private const OUTSIDE_SECRET = 'OUTSIDE-SECRET';
+
     private string $pagesDir;
     private string $outDir;
+    /** Files outside the export, as symlink targets. */
+    private string $outsideDir;
 
     protected function setUp(): void
     {
@@ -34,12 +43,19 @@ class SiteBuilderTest extends TestCase
         file_put_contents($this->pagesDir . '/Readme.md', "# Hello\n");
 
         $this->outDir = sys_get_temp_dir() . '/ssg-lab-test-out-' . uniqid();
+
+        $this->outsideDir = sys_get_temp_dir() . '/ssg-lab-test-outside-' . uniqid();
+        mkdir($this->outsideDir);
+        foreach (['secret.md', 'secret.txt', 'Readme.md'] as $file) {
+            file_put_contents($this->outsideDir . '/' . $file, self::OUTSIDE_SECRET . "\n");
+        }
     }
 
     protected function tearDown(): void
     {
         $this->removeDir($this->pagesDir);
         $this->removeDir($this->outDir);
+        $this->removeDir($this->outsideDir);
     }
 
     public function testDefaultsToMutedTheme(): void
@@ -294,6 +310,70 @@ class SiteBuilderTest extends TestCase
         self::assertFileDoesNotExist($this->outDir . '/index.html');
     }
 
+    /**
+     * Symlinks a hostile archive could plant: the link's path below the pages directory, its
+     * target (relative to the outside dir, or absolute), and the output path the link would
+     * produce if followed (null if it would only add content to a page that exists anyway).
+     *
+     * @return array<string, array{string, string, string|null}>
+     */
+    public static function linkedExportEntries(): array
+    {
+        return [
+            'leaf page' => ['linked.md', 'secret.md', 'linked'],
+            'folder' => ['linked', '', 'linked'],
+            'attachments folder' => ['.attachments.2', '', '.attachments.2'],
+            'file in an attachments folder' => ['.attachments.1/env.txt', 'secret.txt', '.attachments.1/env.txt'],
+            'Readme of a folder' => ['sub/Readme.md', 'secret.md', null],
+            'device' => ['zero.md', '/dev/zero', 'zero'],
+        ];
+    }
+
+    #[DataProvider('linkedExportEntries')]
+    public function testSkipsSymlinksInTheExport(string $link, string $target, ?string $output): void
+    {
+        $path = $this->pagesDir . '/' . $link;
+        if (!is_dir(dirname($path))) {
+            mkdir(dirname($path), 0o755, true);
+        }
+        symlink(str_starts_with($target, '/') ? $target : rtrim($this->outsideDir . '/' . $target, '/'), $path);
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        if ($output !== null) {
+            self::assertFileDoesNotExist($this->outDir . '/' . $output);
+        }
+        self::assertSame([], self::filesContaining($this->outDir, self::OUTSIDE_SECRET));
+    }
+
+    public function testSkipsSymlinkLoops(): void
+    {
+        // Two links to their own folder: followed, every level doubles until the kernel's limit.
+        symlink('.', $this->pagesDir . '/a');
+        symlink('.', $this->pagesDir . '/b');
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        self::assertFileDoesNotExist($this->outDir . '/a');
+        self::assertFileDoesNotExist($this->outDir . '/b');
+    }
+
+    public function testSkipsFifos(): void
+    {
+        if (!function_exists('posix_mkfifo')) {
+            self::markTestSkipped('ext-posix is needed to create a FIFO');
+        }
+        // Reading or copying a FIFO blocks until something writes to it, so the build would hang.
+        posix_mkfifo($this->pagesDir . '/pipe.md', 0o644);
+        mkdir($this->pagesDir . '/.attachments.1');
+        posix_mkfifo($this->pagesDir . '/.attachments.1/pipe.txt', 0o644);
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        self::assertFileDoesNotExist($this->outDir . '/pipe');
+        self::assertFileDoesNotExist($this->outDir . '/.attachments.1/pipe.txt');
+    }
+
     public function testBuildsAPageNamedThreeDots(): void
     {
         $this->writePageFile('....md');
@@ -485,6 +565,26 @@ class SiteBuilderTest extends TestCase
         return $links;
     }
 
+    /**
+     * Paths below $dir of the files whose content contains $needle. Symlinks are not followed.
+     *
+     * @return list<string>
+     */
+    private static function filesContaining(string $dir, string $needle): array
+    {
+        $found = [];
+        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS));
+        foreach ($files as $file) {
+            self::assertInstanceOf(SplFileInfo::class, $file);
+            if (!$file->isLink() && $file->isFile() && str_contains((string)file_get_contents($file->getPathname()), $needle)) {
+                $found[] = substr($file->getPathname(), strlen($dir) + 1);
+            }
+        }
+
+        return $found;
+    }
+
+    /** Removes $dir and everything in it; a symlink is removed itself, never what it points at. */
     private function removeDir(string $dir): void
     {
         if (!is_dir($dir)) {
@@ -495,7 +595,7 @@ class SiteBuilderTest extends TestCase
                 continue;
             }
             $path = $dir . '/' . $entry;
-            is_dir($path) ? $this->removeDir($path) : unlink($path);
+            is_link($path) || !is_dir($path) ? unlink($path) : $this->removeDir($path);
         }
         rmdir($dir);
     }
