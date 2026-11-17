@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Below 60rem the `wiki` sidebar is a drawer that slides in from the left, opened from a button
+  in the site header and closed by that button, by the dimmed page behind it, or by Escape. It
+  used to be a band above the page, which it still is where JavaScript is unavailable and the
+  drawer could not be opened. A layout may now ship a script (`src/themes/<theme>.js`) next to
+  its stylesheet, copied to the output as `layout.js`; `wiki` is the only one that has one.
+
 ### Changed
 
 - **BREAKING:** `$renderOptions['theme']` selects a layout instead of a color palette: `wiki`

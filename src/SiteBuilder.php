@@ -40,6 +40,13 @@ class SiteBuilder
     /** @var list<Theme> Valid `theme` render option values; file names under src/themes/. */
     private const THEMES = ['wiki', 'topnav'];
 
+    /**
+     * @var list<Theme> Themes that also have a `src/themes/<theme>.js`, copied to the
+     *   output as `layout.js` and linked from every page. Listed rather than probed for,
+     *   so a stray file next to a stylesheet can't put itself into a build.
+     */
+    private const THEME_SCRIPTS = ['wiki'];
+
     /** Theme used when the `theme` render option isn't given. */
     private const DEFAULT_THEME = 'wiki';
 
@@ -51,6 +58,9 @@ class SiteBuilder
 
     /** `id` the sidebar's heading is referenced by, for its `aria-labelledby`. */
     private const SIDEBAR_HEADING_ID = 'page-tree-heading';
+
+    /** `id` the sidebar is referenced by, for the drawer toggle's `aria-controls`. */
+    private const SIDEBAR_ID = 'page-tree';
 
     private const BACK = '← Back';
     private const NO_CONTENT = 'This page has no content yet.';
@@ -100,6 +110,9 @@ class SiteBuilder
         copy(__DIR__ . '/style.css', $outDir . '/style.css');
         copy(__DIR__ . '/theme.js', $outDir . '/theme.js');
         copy(__DIR__ . "/themes/{$theme}.css", $outDir . '/layout.css');
+        if (in_array($theme, self::THEME_SCRIPTS, true)) {
+            copy(__DIR__ . "/themes/{$theme}.js", $outDir . '/layout.js');
+        }
 
         $pageCount = $this->renderDirectory($pagesDir, $outDir, [], $siteTitle);
         if ($pageCount === 0) {
@@ -333,6 +346,11 @@ class SiteBuilder
      * The `wiki` layout's navigation: the whole page tree, nested under the
      * site root, with the page being written marked as the current one.
      *
+     * The scrim in front of it is the drawer's: on a narrow screen the
+     * sidebar slides over the page, and the scrim is both what dims the page
+     * underneath and what closes the drawer when it is clicked. It is inert
+     * under the wide layout, where `layout.css` leaves it `display: none`.
+     *
      * @param list<string> $current Slugs from the site root down to the page being written
      * @param string $prefix `../` per level between that page and the site root
      */
@@ -340,10 +358,40 @@ class SiteBuilder
     {
         // The heading names the navigation already — pointing at it beats
         // repeating the same word in an aria-label for screen readers.
-        return '<aside class="sidebar"><nav class="page-tree" aria-labelledby="' . self::SIDEBAR_HEADING_ID . '">'
+        return '<div class="nav-scrim"></div>'
+            . '<aside class="sidebar" id="' . self::SIDEBAR_ID . '">'
+            . '<nav class="page-tree" aria-labelledby="' . self::SIDEBAR_HEADING_ID . '">'
             . '<h2 id="' . self::SIDEBAR_HEADING_ID . '">' . self::SIDEBAR_HEADING . '</h2>'
             . '<ul>' . $this->treeItem($this->tree, [], $current, $prefix) . '</ul>'
             . '</nav></aside>';
+    }
+
+    /**
+     * The `wiki` drawer's toggle, for the site header — the one part of the
+     * page a drawer sliding over it doesn't cover, so the button that opened
+     * it can also close it.
+     *
+     * Ships `hidden`, like the light/dark toggle: `layout.js` is the only
+     * thing that can make it do anything, and a page without it shows the
+     * tree outright rather than behind a button that wouldn't work.
+     *
+     * The name stays "Contents" whether the drawer is open or shut — it names
+     * what the button controls, and `aria-expanded` says which way it stands.
+     */
+    private function navToggle(): string
+    {
+        $label = self::SIDEBAR_HEADING;
+        $controls = self::SIDEBAR_ID;
+
+        return <<<HTML
+<button type="button" class="nav-toggle" hidden aria-expanded="false" aria-controls="{$controls}" aria-label="{$label}">
+                <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+                    <line x1="3.5" y1="6" x2="16.5" y2="6"></line>
+                    <line x1="3.5" y1="10" x2="16.5" y2="10"></line>
+                    <line x1="3.5" y1="14" x2="16.5" y2="14"></line>
+                </svg>
+            </button>
+HTML;
     }
 
     /**
@@ -461,19 +509,22 @@ class SiteBuilder
         $layoutStyles = $prefix . 'layout.css';
         $stylesheet = $prefix . 'style.css';
         $themeScript = $prefix . 'theme.js';
+        $layoutScript = in_array($this->theme, self::THEME_SCRIPTS, true)
+            ? '<script src="' . $prefix . 'layout.js"></script>'
+            : '';
         $footer = sprintf(self::FOOTER, gmdate('Y-m-d H:i:s'));
         // Every page except the root sits one level under its parent index.
         $back = $depth > 0 ? '<a class="back" href="../">' . self::BACK . '</a>' : '';
         // Each layout carries its navigation differently, and the back link
         // with it: `topnav` puts both in the bar below the site header, `wiki`
-        // keeps the link next to the page title and the tree in the sidebar.
-        // Listed rather than branched on, so a third theme can't quietly
-        // inherit whichever layout happens to be the `else`.
-        $nav = match ($this->theme) {
-            'wiki' => $this->sidebar($path, $prefix),
-            'topnav' => $this->topNav($path, $back),
+        // keeps the link next to the page title, the tree in the sidebar and a
+        // toggle for it in the header. Listed rather than branched on, so a
+        // third theme can't quietly inherit whichever layout happens to be the
+        // `else`.
+        [$nav, $navToggle, $titleBack] = match ($this->theme) {
+            'wiki' => [$this->sidebar($path, $prefix), $this->navToggle(), $back],
+            'topnav' => [$this->topNav($path, $back), '', ''],
         };
-        $titleBack = $this->theme === 'wiki' ? $back : '';
 
         $html = <<<HTML
 <!doctype html>
@@ -485,11 +536,13 @@ class SiteBuilder
         <title>{$title}</title>
         <link rel="stylesheet" href="{$stylesheet}">
         <link rel="stylesheet" href="{$layoutStyles}">
-        <!-- Blocking on purpose: sets the theme before the first paint. -->
+        <!-- Blocking on purpose: the state the stylesheets key off is set before the first paint. -->
         <script src="{$themeScript}"></script>
+        {$layoutScript}
     </head>
     <body>
         <header class="site-header">
+            {$navToggle}
             <a href="{$root}">{$siteTitle}</a>
             <button type="button" class="theme-toggle" hidden aria-label="Toggle light/dark theme">
                 <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
