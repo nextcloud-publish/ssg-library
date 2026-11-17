@@ -55,13 +55,23 @@ class MarkdownConverter
         $config = HTMLPurifier_Config::createDefault();
         $config->set('Cache.DefinitionImpl', null);
 
+        // Embedded resources only from the site itself. An external <img> or CSS url() would
+        // let any page author log every visitor's IP and user agent, and a root-relative one
+        // (RootRelativeResourceFilter, added below) makes visitors request other paths on the
+        // hosting origin. Links are not affected.
+        $config->set('URI.DisableExternalResources', true);
+        $config->set('URI.DefinitionID', 'ssg-lab');
+        $config->set('URI.DefinitionRev', 1);
+        // Search engines shouldn't credit the published site for links its authors add.
+        $config->set('HTML.Nofollow', true);
+
         // HTMLPurifier strips <input> by default since it belongs to the
         // Forms module. We don't want to allow whole forms, just the disabled
         // checkbox that CommonMark's TaskListExtension renders for
         // `- [ ]` / `- [x]` items, so it's allow-listed as its own element
         // instead of turning on HTML.Forms.
         $config->set('HTML.DefinitionID', 'ssg-lab');
-        $config->set('HTML.DefinitionRev', 2);
+        $config->set('HTML.DefinitionRev', 3);
         $def = $config->maybeGetRawHTMLDefinition();
         $def?->addElement(
             'input',
@@ -80,6 +90,8 @@ class MarkdownConverter
         // blocks and smart-picker context references, so allow-list them too.
         $def?->addElement('details', 'Block', 'Flow', 'Common', ['open' => 'Bool']);
         $def?->addElement('summary', 'Inline', 'Inline', 'Common');
+
+        $config->maybeGetRawURIDefinition()?->addFilter(new RootRelativeResourceFilter(), $config);
 
         return new HTMLPurifier($config);
     }
