@@ -1,0 +1,96 @@
+/*
+ * `wiki` layout, selected via `theme: 'wiki'` in $renderOptions (the default)
+ * and copied to the build output as `layout.css`: the whole site as a page
+ * tree in a sidebar that stays put while the page scrolls, the way a wiki's
+ * navigation does. Every page links the same tree, with its own entry marked
+ * `aria-current="page"` — see `topnav.css` for the alternate layout.
+ *
+ * The sidebar is taken out of the flow and the body padded by its width
+ * instead, so the sticky site header and the centred page column below it
+ * need no layout rules of their own.
+ */
+:root {
+    --sidebar-width: 17rem;
+}
+
+body {
+    padding-left: var(--sidebar-width);
+}
+
+.sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: var(--sidebar-width);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.1rem 1rem 2rem 1.5rem;
+    border-right: 1px solid var(--border);
+    background: var(--bg-sunken);
+    font-size: .9rem;
+    line-height: 1.5;
+}
+
+/* Section label above the tree, not a heading the page's prose should echo. */
+.sidebar h2 {
+    font-family: var(--sans);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin: 0 0 .6rem;
+}
+
+.page-tree li { margin: .08rem 0; }
+.page-tree a {
+    display: block;
+    padding: .22rem .45rem;
+    border-radius: 4px;
+    overflow-wrap: break-word;
+}
+.page-tree a:hover { background: var(--bg-raised); }
+/*
+ * The page being shown, marked by `aria-current="page"` on its own link. Only
+ * the tree can carry it: a top bar links sub-pages, never the current page —
+ * which is why this sits here and not in the shared stylesheet.
+ */
+.page-tree a[aria-current] {
+    color: var(--link);
+    font-weight: 600;
+    background: var(--bg-raised);
+    box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* The site root heads the tree, so it carries the serif of a page title. */
+.page-tree > ul > li > a {
+    font-family: var(--serif);
+    font-size: 1.05rem;
+}
+
+/* Sub-pages indent against a guide line down their parent's left edge. */
+.page-tree ul ul {
+    margin-left: .5rem;
+    padding-left: .6rem;
+    border-left: 1px solid var(--border-strong);
+}
+
+/*
+ * Too narrow for a column beside the page: the tree becomes a band above it,
+ * capped in height so it can't push the page off the first screen.
+ */
+@media (max-width: 60rem) {
+    body { padding-left: 0; }
+    .sidebar {
+        position: static;
+        width: auto;
+        max-height: 45vh;
+        padding: 1rem 1.5rem 1.25rem;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+    }
+}
+
+@media print {
+    body { padding-left: 0; }
+}

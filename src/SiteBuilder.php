@@ -25,42 +25,41 @@ use stdClass;
  * and sockets are ignored, so nothing outside the pages directory is read or published.
  *
  * Output mirrors that tree: a folder becomes `<name>/index.html`, a leaf
- * `.md` file becomes `<name>/index.html` one level below its folder. `$depth`
- * threaded through the recursion is how many directories deep the page being
- * written sits, which is all that's needed to build its relative links.
+ * `.md` file becomes `<name>/index.html` one level below its folder. The
+ * `$path` threaded through the recursion is the slugs from the site root down
+ * to the page being written, which gives both its depth (for relative links)
+ * and its place in the page tree the navigation is drawn from.
+ *
+ * The `theme` render option is one of self::THEMES, named here so the layout
+ * it selects can be matched exhaustively rather than branched on:
+ *
+ * @phpstan-type Theme 'wiki'|'topnav'
  */
 class SiteBuilder
 {
     /** @var list<string> The render option keys build() accepts. */
     private const RENDER_OPTION_KEYS = ['theme'];
 
-    /** @var list<string> Valid `theme` render option values; file names under src/themes/. */
-    private const THEMES = ['muted', 'colorful'];
+    /** @var list<Theme> Valid `theme` render option values; file names under src/themes/. */
+    private const THEMES = ['wiki', 'topnav'];
 
     /** Theme used when the `theme` render option isn't given. */
-    private const DEFAULT_THEME = 'muted';
+    private const DEFAULT_THEME = 'wiki';
 
-    /**
-     * Static UI chrome text, varied a bit per theme — `colorful` reads more
-     * playful, `muted` stays plain. Keyed by self::THEMES value, then by copy
-     * key; `footer` is an sprintf() format string taking the timestamp.
-     *
-     * @var array<string, array{back: string, noContent: string, subpagesHeading: string, footer: string}>
-     */
-    private const COPY = [
-        'muted' => [
-            'back' => '← Back',
-            'noContent' => 'This page has no content yet.',
-            'subpagesHeading' => 'Pages',
-            'footer' => 'Generated %s UTC',
-        ],
-        'colorful' => [
-            'back' => '← Back for more',
-            'noContent' => "Nothing here yet — this page is still blank. Go write something!",
-            'subpagesHeading' => 'Explore',
-            'footer' => 'Freshly generated %s UTC',
-        ],
-    ];
+    /** Heading above the `wiki` sidebar's page tree. */
+    private const SIDEBAR_HEADING = 'Contents';
+
+    /** Accessible name of the `topnav` bar, which carries no visible heading. */
+    private const TOPNAV_LABEL = 'Pages';
+
+    /** `id` the sidebar's heading is referenced by, for its `aria-labelledby`. */
+    private const SIDEBAR_HEADING_ID = 'page-tree-heading';
+
+    private const BACK = '← Back';
+    private const NO_CONTENT = 'This page has no content yet.';
+
+    /** sprintf() format string taking the build timestamp. */
+    private const FOOTER = 'Generated %s UTC';
 
     /**
      * File extensions, lower-case, of the attachments copied to the output; any other file is
@@ -85,9 +84,12 @@ class SiteBuilder
     ];
 
     private string $siteTitle = 'Collectives lab';
+
+    /** @var Theme */
     private string $theme = self::DEFAULT_THEME;
-    /** The pages directory of the running build, to name export entries relative to it. */
-    private string $pagesDir = '';
+
+    /** The whole site's page tree, scanned in build() before the first page is written. */
+    private PageNode $tree;
 
     public function __construct(
         private MarkdownConverter $markdown = new MarkdownConverter(),
@@ -100,9 +102,7 @@ class SiteBuilder
      *   JSON: null, or an object of the keys listed under "Render options" in
      *   the README. Checked before anything is written to $outDir.
      * @return int Number of rendered pages
-     * @throws InvalidArgumentException if $renderOptions is not null or an object of supported keys and values,
-     *   or a page file's name can't be a page directory (`..md`, `...md`); the latter after output
-     *   was written
+     * @throws InvalidArgumentException if $renderOptions is not null or an object of supported keys and values
      * @throws RuntimeException if $pagesDir is missing or holds no .md file
      */
     public function build(string $pagesDir, string $outDir, string $siteTitle = 'Collectives lab', mixed $renderOptions = null): int
@@ -117,13 +117,16 @@ class SiteBuilder
 
         $this->siteTitle = $siteTitle;
         $this->theme = $theme;
-        $this->pagesDir = $pagesDir;
+        // Navigation shows pages other than the one being written, so the
+        // whole tree has to be known before the first page is rendered.
+        $this->tree = $this->scanTree($pagesDir, '', $siteTitle);
+
         $this->ensureDir($outDir);
         copy(__DIR__ . '/style.css', $outDir . '/style.css');
         copy(__DIR__ . '/theme.js', $outDir . '/theme.js');
-        copy(__DIR__ . "/themes/{$theme}.css", $outDir . '/palette.css');
+        copy(__DIR__ . "/themes/{$theme}.css", $outDir . '/layout.css');
 
-        $pageCount = $this->renderDirectory($pagesDir, $outDir, 0, $siteTitle);
+        $pageCount = $this->renderDirectory($pagesDir, $outDir, [], $siteTitle);
         if ($pageCount === 0) {
             throw new RuntimeException("No .md files found in {$pagesDir}");
         }
@@ -136,7 +139,7 @@ class SiteBuilder
      * A JSON object is expected as an associative array, i.e. decoded with `assoc: true` — where an
      * empty object is indistinguishable from `[]`, so `[]` counts as an object too.
      *
-     * @return array{theme?: string}
+     * @return array{theme?: Theme}
      * @throws InvalidArgumentException if $value is not null or an object of supported keys and values
      */
     private function parseRenderOptions(mixed $value): array
@@ -181,13 +184,35 @@ class SiteBuilder
     }
 
     /**
+     * Scans one Collectives folder into the page tree the navigation is drawn
+     * from, in the order renderDirectory() renders its pages: leaf `.md`
+     * sub-pages first, then sub-folders.
+     */
+    private function scanTree(string $dir, string $slug, string $title): PageNode
+    {
+        [$subdirs, $leaves] = $this->readEntries($dir);
+
+        $children = [];
+        foreach ($leaves as $leaf) {
+            // A leaf page has no title of its own beyond the name it renders under.
+            $children[] = new PageNode($leaf['slug'], $leaf['slug']);
+        }
+        foreach ($subdirs as $subdir) {
+            $children[] = $this->scanTree($dir . '/' . $subdir, $subdir, $subdir);
+        }
+
+        return new PageNode($slug, $title, $children);
+    }
+
+    /**
      * Renders one Collectives folder (its own Readme.md, if any, plus its
      * leaf .md siblings and sub-folders) into $outDir, recursing into
      * sub-folders along the way.
      *
+     * @param list<string> $path Slugs from the site root down to this folder; empty for the root.
      * @return int Number of pages rendered, including sub-folders
      */
-    private function renderDirectory(string $dir, string $outDir, int $depth, string $title): int
+    private function renderDirectory(string $dir, string $outDir, array $path, string $title): int
     {
         $this->ensureDir($outDir);
 
@@ -198,57 +223,58 @@ class SiteBuilder
             }
         }
 
-        [$subdirs, $leafFiles] = $this->readEntries($dir);
+        [$subdirs, $leaves, $readme] = $this->readEntries($dir);
 
         $pageCount = 0;
-        $children = [];
 
-        foreach ($leafFiles as $file) {
-            $slug = basename($file, '.md');
-            // `..md` and `...md` would name the page's directory `.` or `..`: the page would land
-            // on its folder's own index.html or one directory up, from the root outside $outDir.
-            if ($slug === '.' || $slug === '..') {
-                throw new InvalidArgumentException(
-                    "Page file '{$file}' in '{$this->relativePath($dir)}' has no usable name",
-                );
-            }
+        foreach ($leaves as $leaf) {
+            $slug = $leaf['slug'];
             // Leaf pages render one level below the `.attachments.*` folders
             // holding their images, so those links need an extra `../`.
-            $body = $this->renderMarkdownFile($dir . '/' . $file, '../');
+            $body = $this->renderMarkdownFile($dir . '/' . $leaf['file'], '../');
 
-            $this->writePage($outDir . '/' . $slug, $slug, $depth + 1, $this->article($body));
+            $this->writePage($outDir . '/' . $slug, $slug, [...$path, $slug], $this->article($body));
             $pageCount++;
-            $children[] = $slug;
         }
 
         foreach ($subdirs as $subdir) {
-            $pageCount += $this->renderDirectory($dir . '/' . $subdir, $outDir . '/' . $subdir, $depth + 1, $subdir);
-            $children[] = $subdir;
+            $pageCount += $this->renderDirectory($dir . '/' . $subdir, $outDir . '/' . $subdir, [...$path, $subdir], $subdir);
         }
 
         $main = '';
-        $readmePath = $dir . '/Readme.md';
-        if ($this->isPlainFile($readmePath)) {
-            $main .= $this->article($this->renderMarkdownFile($readmePath));
+        if ($readme !== null) {
+            $main .= $this->article($this->renderMarkdownFile($dir . '/' . $readme));
             $pageCount++;
         }
-        $main .= $this->subPageList($children);
         if ($main === '') {
-            $main = '<p>' . $this->copy('noContent') . '</p>';
+            // Sub-pages aren't listed here under either layout — the sidebar
+            // and the top bar already link them.
+            $main = '<p>' . self::NO_CONTENT . '</p>';
         }
 
-        $this->writePage($outDir, $title, $depth, $main);
+        $this->writePage($outDir, $title, $path, $main);
 
         return $pageCount;
     }
 
     /**
-     * Splits a folder's entries into sub-folders and leaf `.md` files,
-     * skipping `Readme.md` (rendered as the folder's own page),
-     * `.attachments.*` directories (copied by copyDir()) and anything
-     * that is not a regular file or a real directory.
+     * Splits a folder's entries into sub-folders, leaf `.md` pages and the
+     * folder's own `Readme.md`; `.attachments.*` directories are copied
+     * separately by copyDir().
      *
-     * @return array{list<string>, list<string>} sub-folder names, leaf file names
+     * Everything is matched case-insensitively, `Readme.md` included: an
+     * export written on a case-insensitive filesystem can spell it `README.md`
+     * just as well, and a folder whose Readme went unrecognised used to render
+     * as an empty page with its content dropped on the floor.
+     *
+     * Skipped on the way: dot-prefixed entries — `.attachments.*` directories
+     * are copied verbatim elsewhere, and nothing else hidden belongs in a page
+     * tree — and anything that is not a regular file or a real directory:
+     * a symlink could point at another collective, at a path outside the
+     * export entirely, or back at their own parent.
+     *
+     * @return array{list<string>, list<array{file: string, slug: string}>, ?string}
+     *   sub-folder names, leaf pages, and the folder's own Readme file name if it has one
      */
     private function readEntries(string $dir): array
     {
@@ -257,23 +283,56 @@ class SiteBuilder
 
         $subdirs = [];
         $leafFiles = [];
+        $readme = null;
         foreach ($entries as $entry) {
-            if ($entry === '.' || $entry === '..' || str_starts_with($entry, '.attachments.')) {
+            if (str_starts_with($entry, '.')) {
                 continue;
             }
             $path = $dir . '/' . $entry;
             if ($this->isPlainDir($path)) {
                 $subdirs[] = $entry;
-            } elseif (
-                $this->isPlainFile($path)
-                && strcasecmp(pathinfo($entry, PATHINFO_EXTENSION), 'md') === 0
-                && strcasecmp($entry, 'Readme.md') !== 0
-            ) {
-                $leafFiles[] = $entry;
+            } elseif ($this->isPlainFile($path) && strcasecmp(pathinfo($entry, PATHINFO_EXTENSION), 'md') === 0) {
+                if (strcasecmp($entry, 'Readme.md') === 0) {
+                    // Both spellings at once is a broken export either way; the
+                    // sort above at least makes which one wins the same everywhere.
+                    $readme ??= $entry;
+                } else {
+                    $leafFiles[] = $entry;
+                }
             }
         }
 
-        return [$subdirs, $leafFiles];
+        // Sub-folders claim their slug first: a folder is a page with sub-pages
+        // below it, so moving it would move everything underneath it too.
+        $taken = array_map('strtolower', $subdirs);
+        $leaves = [];
+        foreach ($leafFiles as $file) {
+            $leaves[] = ['file' => $file, 'slug' => $this->freeSlug(pathinfo($file, PATHINFO_FILENAME), $taken)];
+        }
+
+        return [$subdirs, $leaves, $readme];
+    }
+
+    /**
+     * `$name`, or `$name-2`, `$name-3`, … if it is already spoken for — two
+     * pages of one folder would otherwise render into a single output
+     * directory, where the second silently overwrites the first.
+     *
+     * Compared case-insensitively, so a build on a case-insensitive filesystem
+     * (where `Cats/` and `cats/` are one directory) lays out the same as it
+     * does anywhere else. The slug handed out is added to `$taken`.
+     *
+     * @param list<string> $taken Lowercased slugs already used in this folder
+     */
+    private function freeSlug(string $name, array &$taken): string
+    {
+        $slug = $name;
+        for ($n = 2; in_array(strtolower($slug), $taken, true); $n++) {
+            $slug = $name . '-' . $n;
+        }
+        $taken[] = strtolower($slug);
+
+        return $slug;
     }
 
     private function renderMarkdownFile(string $path, string $attachmentPrefix = ''): string
@@ -284,56 +343,156 @@ class SiteBuilder
         );
     }
 
-    /** $dir relative to the pages directory, `.` for the pages directory itself. */
-    private function relativePath(string $dir): string
-    {
-        return $dir === $this->pagesDir ? '.' : substr($dir, strlen($this->pagesDir) + 1);
-    }
-
     private function article(string $html): string
     {
         return '<article class="page"><div class="content">' . $html . '</div></article>';
     }
 
     /**
-     * @param list<string> $children Sub-page names, linked as `<url-encoded name>/`
+     * The `wiki` layout's navigation: the whole page tree, nested under the
+     * site root, with the page being written marked as the current one.
+     *
+     * @param list<string> $current Slugs from the site root down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
      */
-    private function subPageList(array $children): string
+    private function sidebar(array $current, string $prefix): string
     {
-        if ($children === []) {
+        // The heading names the navigation already — pointing at it beats
+        // repeating the same word in an aria-label for screen readers.
+        return '<aside class="sidebar"><nav class="page-tree" aria-labelledby="' . self::SIDEBAR_HEADING_ID . '">'
+            . '<h2 id="' . self::SIDEBAR_HEADING_ID . '">' . self::SIDEBAR_HEADING . '</h2>'
+            . '<ul>' . $this->treeItem($this->tree, [], $current, $prefix) . '</ul>'
+            . '</nav></aside>';
+    }
+
+    /**
+     * One page tree item, with its sub-pages nested below it.
+     *
+     * @param list<string> $path Slugs from the site root down to $node; empty for the root
+     * @param list<string> $current Slugs down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
+     */
+    private function treeItem(PageNode $node, array $path, array $current, string $prefix): string
+    {
+        $marker = $path === $current ? ' aria-current="page"' : '';
+
+        $html = '<li><a href="' . $this->e($this->url($path, $prefix)) . '"' . $marker . '>' . $this->e($node->title) . '</a>';
+        if ($node->children !== []) {
+            $html .= '<ul>';
+            foreach ($node->children as $child) {
+                $html .= $this->treeItem($child, [...$path, $child->slug], $current, $prefix);
+            }
+            $html .= '</ul>';
+        }
+
+        return $html . '</li>';
+    }
+
+    /**
+     * The `topnav` layout's navigation: one level only — the current page's
+     * own sub-pages, which sit directly below it in the output — plus the back
+     * link up to its parent.
+     *
+     * @param list<string> $current Slugs from the site root down to the page being written
+     * @param string $back The back link, empty on the root page
+     */
+    private function topNav(array $current, string $back): string
+    {
+        $items = '';
+        foreach ($this->childrenAt($current) as $child) {
+            // A child sits directly below the current page, so its URL is
+            // relative to that page rather than to the site root.
+            $href = $this->url([$child->slug], '');
+            $items .= '<li><a href="' . $this->e($href) . '">' . $this->e($child->title) . '</a></li>';
+        }
+
+        if ($items === '' && $back === '') {
             return '';
         }
 
-        $items = '';
-        foreach ($children as $child) {
-            // Encoded as a URL path segment, not just HTML-escaped: `:` would let a
-            // name like `javascript:…` form a URL scheme, and `?`, `#`, `%` would
-            // point somewhere other than the directory written to disk.
-            // rawurlencode() only emits [A-Za-z0-9-_.~%], so the href needs no escaping.
-            $items .= '<li><a href="' . rawurlencode($child) . '/">' . $this->e($child) . '</a></li>';
+        return '<nav class="topnav" aria-label="' . self::TOPNAV_LABEL . '">'
+            . ($items === '' ? '' : '<ul>' . $items . '</ul>')
+            . $back
+            . '</nav>';
+    }
+
+    /**
+     * The URL of the page `$path` leads to, as linked from a page `$prefix`
+     * levels below the site root.
+     *
+     * Slugs are directory names straight off disk, so they are percent-encoded
+     * on the way in: a `#` or `?` in a page name would otherwise cut the URL
+     * short at a fragment or a query string, and a page named `javascript:…`
+     * would turn a relative link into a scheme of its own.
+     *
+     * @param list<string> $path Slugs from the site root down; empty for the root itself
+     * @param string $prefix `../` per level between the linking page and the site root
+     */
+    private function url(array $path, string $prefix): string
+    {
+        // At the site root both parts are empty, where an href would come out
+        // empty too — pointing at the page doing the linking.
+        if ($path === []) {
+            return $prefix === '' ? './' : $prefix;
         }
 
-        return '<nav class="subpages"><h2>' . $this->copy('subpagesHeading') . '</h2><ul>' . $items . '</ul></nav>';
+        return $prefix . implode('/', array_map('rawurlencode', $path)) . '/';
     }
 
-    private function copy(string $key): string
+    /**
+     * The sub-pages of the page $path leads to. Empty if it has none — or if
+     * the path leads nowhere, which can't happen for a page the recursion is
+     * writing, since the tree was scanned off the same directories.
+     *
+     * @param list<string> $path Slugs from the site root down
+     * @return list<PageNode>
+     */
+    private function childrenAt(array $path): array
     {
-        return self::COPY[$this->theme][$key];
+        $children = $this->tree->children;
+        foreach ($path as $slug) {
+            foreach ($children as $child) {
+                if ($child->slug === $slug) {
+                    // Found this level's page: carry on down from its own children.
+                    $children = $child->children;
+                    continue 2;
+                }
+            }
+
+            return [];
+        }
+
+        return $children;
     }
 
-    private function writePage(string $outDir, string $title, int $depth, string $main): void
+    /**
+     * @param list<string> $path Slugs from the site root down to this page; empty for the root
+     */
+    private function writePage(string $outDir, string $title, array $path, string $main): void
     {
         $this->ensureDir($outDir);
 
+        $depth = count($path);
         $title = $this->e($title);
         $siteTitle = $this->e($this->siteTitle);
-        $root = $depth === 0 ? './' : str_repeat('../', $depth);
-        $palette = str_repeat('../', $depth) . 'palette.css';
-        $stylesheet = str_repeat('../', $depth) . 'style.css';
-        $themeScript = str_repeat('../', $depth) . 'theme.js';
-        $footer = sprintf($this->copy('footer'), gmdate('Y-m-d H:i:s'));
+        $prefix = str_repeat('../', $depth);
+        $root = $this->url([], $prefix);
+        $layoutStyles = $prefix . 'layout.css';
+        $stylesheet = $prefix . 'style.css';
+        $themeScript = $prefix . 'theme.js';
+        $footer = sprintf(self::FOOTER, gmdate('Y-m-d H:i:s'));
         // Every page except the root sits one level under its parent index.
-        $back = $depth > 0 ? '<a class="back" href="../">' . $this->copy('back') . '</a>' : '';
+        $back = $depth > 0 ? '<a class="back" href="../">' . self::BACK . '</a>' : '';
+        // Each layout carries its navigation differently, and the back link
+        // with it: `topnav` puts both in the bar below the site header, `wiki`
+        // keeps the link next to the page title and the tree in the sidebar.
+        // Listed rather than branched on, so a third theme can't quietly
+        // inherit whichever layout happens to be the `else`.
+        $nav = match ($this->theme) {
+            'wiki' => $this->sidebar($path, $prefix),
+            'topnav' => $this->topNav($path, $back),
+        };
+        $titleBack = $this->theme === 'wiki' ? $back : '';
 
         $html = <<<HTML
 <!doctype html>
@@ -343,8 +502,8 @@ class SiteBuilder
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="generator" content="ssg-lab">
         <title>{$title}</title>
-        <link rel="stylesheet" href="{$palette}">
         <link rel="stylesheet" href="{$stylesheet}">
+        <link rel="stylesheet" href="{$layoutStyles}">
         <!-- Blocking on purpose: sets the theme before the first paint. -->
         <script src="{$themeScript}"></script>
     </head>
@@ -358,10 +517,11 @@ class SiteBuilder
                 </svg>
             </button>
         </header>
+        {$nav}
         <main>
             <div class="page-header">
                 <h1 class="page-title">{$title}</h1>
-                {$back}
+                {$titleBack}
             </div>
             {$main}
         </main>
@@ -385,11 +545,17 @@ HTML;
     /**
      * Copies an `.attachments.*` folder, sub-folders included, but only the files
      * isPublishableAttachment() accepts; dot-entries are skipped at every level, files and
-     * folders alike, and so is anything that is not a regular file or a real directory.
-     * Skipped files are left out silently, so the build goes on.
+     * folders alike, and so is anything that is not a regular file or a real directory —
+     * a symlink pointing out of the export would otherwise publish whatever it finds at
+     * the other end as a file of the site's own. Skipped files are left out silently, so
+     * the build goes on.
      */
     private function copyDir(string $from, string $to): void
     {
+        if (is_link($from)) {
+            return;
+        }
+
         $this->ensureDir($to);
         foreach (scandir($from) ?: [] as $entry) {
             // Also covers `.` and `..`.

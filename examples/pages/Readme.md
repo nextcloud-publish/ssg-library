@@ -30,4 +30,5 @@ Those become plain links instead of broken images:
 
 ![notes.csv](.attachments.1/notes.csv)
 
-Sub-pages are linked automatically below by `SiteBuilder`.
+Sub-pages are linked automatically by `SiteBuilder`, in the sidebar or the top
+bar depending on the layout.
