@@ -103,12 +103,17 @@ accepted as well):
 | `theme` | string | `wiki`  | `wiki` or `topnav` |
 
 `theme` picks how a page navigates to the rest of the site. Its stylesheet
-(`src/themes/*.css`) is copied to the output as `layout.css`; everything else —
-colors, typography, prose and the light/dark toggle — is the same under both.
+(`src/themes/*.css`) is copied to the output as `layout.css`, and its script, if
+it has one (`src/themes/*.js`), as `layout.js`; everything else — colors,
+typography, prose and the light/dark toggle — is the same under both.
 
 - **`wiki`** puts the site's whole page tree in a sidebar on the left, the same
   on every page, with the page being shown marked `aria-current="page"`. Below
-  60rem the sidebar becomes a band above the page.
+  60rem there is no room for it beside the page, so it becomes a drawer that
+  slides in from the left, opened from a button in the site header and closed
+  by that button, by the dimmed page behind it, or by <kbd>Esc</kbd>. With
+  JavaScript unavailable the drawer can't be opened, so the tree falls back to
+  a band above the page and the button is never shown.
 - **`topnav`** puts the current page's own sub-pages in a bar below the site
   header — one level deep only, no ancestors and no nesting — with the back
   link to the parent page at its end.
@@ -145,7 +150,8 @@ one), images and media from the site only, and inline styles are needed for
 the `style` attributes HTMLPurifier keeps.
 
 Generated pages ship with a light/dark theme toggle (`style.css`, `theme.js`),
-copied into the output directory on every build.
+copied into the output directory on every build, alongside the selected
+layout's `layout.css` and — under `wiki` — its `layout.js`.
 
 ### Why sanitization is split into two places
 

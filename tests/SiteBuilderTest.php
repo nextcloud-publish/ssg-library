@@ -87,13 +87,46 @@ class SiteBuilderTest extends TestCase
         (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample');
 
         $leaf = (string)file_get_contents($this->outDir . '/Cats/Paws/index.html');
-        self::assertStringContainsString('<aside class="sidebar">', $leaf);
+        self::assertStringContainsString('<aside class="sidebar"', $leaf);
         self::assertStringContainsString('<a href="../../">Sample</a>', $leaf);
         self::assertStringContainsString('<a href="../../Cats/">Cats</a>', $leaf);
         self::assertStringContainsString('<a href="../../Cats/Paws/" aria-current="page">Paws</a>', $leaf);
         self::assertStringContainsString('<a href="../../about/">about</a>', $leaf);
         // The root's own link is a relative path of its own, not an empty one.
         self::assertStringContainsString('<a href="./">Sample</a>', (string)file_get_contents($this->outDir . '/index.html'));
+    }
+
+    /**
+     * On a narrow screen the `wiki` sidebar is a drawer, which needs a script
+     * and a button in the header to open it. Both are the layout's own: under
+     * `topnav` there is no tree to toggle, so neither is written.
+     */
+    public function testWikiThemeShipsTheDrawerToggleAndScript(): void
+    {
+        $this->writePages();
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample');
+
+        self::assertFileEquals(__DIR__ . '/../src/themes/wiki.js', $this->outDir . '/layout.js');
+
+        $leaf = (string)file_get_contents($this->outDir . '/Cats/Paws/index.html');
+        self::assertStringContainsString('<script src="../../layout.js"></script>', $leaf);
+        // The button says what it controls, and the sidebar answers to that id.
+        self::assertStringContainsString('aria-controls="page-tree"', $leaf);
+        self::assertStringContainsString('<aside class="sidebar" id="page-tree">', $leaf);
+        // Shut, and hidden until the script that can open it has run.
+        self::assertStringContainsString('class="nav-toggle" hidden aria-expanded="false"', $leaf);
+    }
+
+    public function testTopnavThemeShipsNeitherDrawerNorItsScript(): void
+    {
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample', ['theme' => 'topnav']);
+
+        $root = (string)file_get_contents($this->outDir . '/index.html');
+        self::assertFileDoesNotExist($this->outDir . '/layout.js');
+        self::assertStringNotContainsString('layout.js', $root);
+        self::assertStringNotContainsString('nav-toggle', $root);
+        self::assertStringNotContainsString('nav-scrim', $root);
     }
 
     /**
@@ -110,7 +143,7 @@ class SiteBuilderTest extends TestCase
         self::assertStringContainsString('<a href="Paws/">Paws</a>', $cats);
         self::assertStringContainsString('<a class="back" href="../">', $cats);
         self::assertStringNotContainsString('>about</a>', $cats);
-        self::assertStringNotContainsString('<aside class="sidebar">', $cats);
+        self::assertStringNotContainsString('<aside class="sidebar"', $cats);
 
         // The root page has sub-pages to link, but no parent to go back to.
         $root = $this->navOf((string)file_get_contents($this->outDir . '/index.html'));
@@ -247,7 +280,7 @@ class SiteBuilderTest extends TestCase
      */
     private function navOf(string $html): string
     {
-        preg_match('#<aside class="sidebar">.*?</aside>|<nav class="topnav".*?</nav>#s', $html, $match);
+        preg_match('#<aside class="sidebar".*?</aside>|<nav class="topnav".*?</nav>#s', $html, $match);
 
         return $match[0] ?? '';
     }

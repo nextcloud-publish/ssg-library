@@ -8,6 +8,13 @@
  * The sidebar is taken out of the flow and the body padded by its width
  * instead, so the sticky site header and the centred page column below it
  * need no layout rules of their own.
+ *
+ * Narrow screens have no room for a column beside the page, so there the tree
+ * slides in over it as a drawer, opened from a button in the site header. All
+ * of that hangs off `:root[data-nav]`, which `wiki.js` (copied out as
+ * `layout.js`) sets as it loads — without the script nothing could open the
+ * drawer, so a tree that hid itself would be a tree no one could reach, and
+ * the rules below fall back to a plain band above the page instead.
  */
 :root {
     --sidebar-width: 17rem;
@@ -75,12 +82,57 @@ body {
     border-left: 1px solid var(--border-strong);
 }
 
+/* ---------- Drawer ---------- */
+
 /*
- * Too narrow for a column beside the page: the tree becomes a band above it,
- * capped in height so it can't push the page off the first screen.
+ * The toggle. It lives in the site header rather than beside the tree it
+ * opens, which is the only place that stays clear of the drawer sliding over
+ * the page. Off by default and switched on in the media query below: on a
+ * screen wide enough for the sidebar the tree is simply there, with nothing
+ * for a button to do.
  */
-@media (max-width: 60rem) {
+.nav-toggle {
+    display: none;
+    padding: .25rem;
+    border: 0;
+    border-radius: var(--radius);
+    background: none;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+.nav-toggle:hover { color: var(--text); background: var(--bg-raised); }
+.nav-toggle svg { display: block; }
+/*
+ * Bars into a cross: the outer two slide onto the middle one's line and turn
+ * across each other there, the middle one fades out beneath them. `fill-box`
+ * is what makes each bar turn around its own centre instead of the icon's.
+ */
+.nav-toggle svg line {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform .2s ease, opacity .2s ease;
+}
+.nav-toggle[aria-expanded="true"] svg line:nth-child(1) { transform: translateY(4px) rotate(45deg); }
+.nav-toggle[aria-expanded="true"] svg line:nth-child(2) { opacity: 0; }
+.nav-toggle[aria-expanded="true"] svg line:nth-child(3) { transform: translateY(-4px) rotate(-45deg); }
+
+/* Dims the page under an open drawer, and closes it when clicked. */
+.nav-scrim { display: none; }
+
+/*
+ * `screen` on purpose: a printed page is laid out at whatever width the paper
+ * is, which can well be under the breakpoint, and a drawer printed shut would
+ * take the navigation — and, with the scroll lock, everything past the first
+ * page — with it. Print gets the rules above and the `@media print` block.
+ */
+@media screen and (max-width: 60rem) {
     body { padding-left: 0; }
+
+    /*
+     * Without the drawer script the tree can't be opened, so it must not be
+     * closed: a band above the page, capped in height so it can't push the
+     * page itself off the first screen.
+     */
     .sidebar {
         position: static;
         width: auto;
@@ -89,6 +141,54 @@ body {
         border-right: 0;
         border-bottom: 1px solid var(--border);
     }
+
+    /* With it, the same tree is a drawer, and the header gains its handle. */
+    :root[data-nav] .nav-toggle { display: flex; }
+    :root[data-nav] .nav-toggle[hidden] { display: none; }
+
+    :root[data-nav] .sidebar {
+        position: fixed;
+        /* Below the site header, which keeps the toggle clear of the drawer. */
+        inset: var(--header-height) auto 0 0;
+        width: min(var(--sidebar-width), 84vw);
+        max-height: none;
+        padding: 1.1rem 1rem 2rem 1.5rem;
+        border-right: 1px solid var(--border);
+        border-bottom: 0;
+        box-shadow: 0 0 2rem rgb(0 0 0 / .18);
+        /*
+         * `visibility` rather than opacity or offset alone: a drawer that is
+         * merely parked off-screen still answers the Tab key, so its links
+         * would be reachable on a page that doesn't show them. It flips in
+         * step with the slide instead of part-way through it.
+         */
+        visibility: hidden;
+        transform: translateX(-100%);
+        transition: transform .25s ease, visibility .25s;
+    }
+    :root[data-nav="open"] .sidebar {
+        visibility: visible;
+        transform: none;
+    }
+
+    :root[data-nav] .nav-scrim {
+        display: block;
+        position: fixed;
+        inset: var(--header-height) 0 0;
+        /* Under the site header, over everything else. */
+        z-index: 9;
+        background: rgb(0 0 0 / .45);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity .25s ease, visibility .25s;
+    }
+    :root[data-nav="open"] .nav-scrim {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    /* The page shouldn't scroll away behind an open drawer. */
+    :root[data-nav="open"] body { overflow: hidden; }
 }
 
 @media print {
