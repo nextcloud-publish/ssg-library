@@ -71,6 +71,10 @@ $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', ren
   dot-folder. The output is served from the published site's origin, so a file
   the browser renders as a document or runs as script would run there. The
   full list is `ATTACHMENT_EXTENSIONS` in `src/SiteBuilder.php`.
+
+  Only regular files and real directories are read: symlinks, FIFOs, devices
+  and sockets anywhere in the export are ignored, so nothing outside
+  `$pagesDir` is read or published. `$pagesDir` itself may be a symlink.
 - `$outDir` is where the static site is written. Each folder becomes
   `<name>/index.html`; each leaf `.md` file becomes `<name>/index.html` one
   level below its folder.

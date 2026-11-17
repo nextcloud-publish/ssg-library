@@ -21,6 +21,9 @@ use stdClass;
  * relative to the folder the `.md` file lives in — not to the rendered
  * page's own output directory).
  *
+ * Only regular files and real directories of the export are read; symlinks, FIFOs, devices
+ * and sockets are ignored, so nothing outside the pages directory is read or published.
+ *
  * Output mirrors that tree: a folder becomes `<name>/index.html`, a leaf
  * `.md` file becomes `<name>/index.html` one level below its folder. `$depth`
  * threaded through the recursion is how many directories deep the page being
@@ -189,7 +192,10 @@ class SiteBuilder
         $this->ensureDir($outDir);
 
         foreach (glob($dir . '/.attachments.*', GLOB_ONLYDIR) ?: [] as $attachmentsDir) {
-            $this->copyDir($attachmentsDir, $outDir . '/' . basename($attachmentsDir));
+            // GLOB_ONLYDIR also matches symlinks to directories.
+            if ($this->isPlainDir($attachmentsDir)) {
+                $this->copyDir($attachmentsDir, $outDir . '/' . basename($attachmentsDir));
+            }
         }
 
         [$subdirs, $leafFiles] = $this->readEntries($dir);
@@ -222,7 +228,7 @@ class SiteBuilder
 
         $main = '';
         $readmePath = $dir . '/Readme.md';
-        if (is_file($readmePath)) {
+        if ($this->isPlainFile($readmePath)) {
             $main .= $this->article($this->renderMarkdownFile($readmePath));
             $pageCount++;
         }
@@ -238,8 +244,9 @@ class SiteBuilder
 
     /**
      * Splits a folder's entries into sub-folders and leaf `.md` files,
-     * skipping `Readme.md` (rendered as the folder's own page) and
-     * `.attachments.*` directories (copied by copyDir()).
+     * skipping `Readme.md` (rendered as the folder's own page),
+     * `.attachments.*` directories (copied by copyDir()) and anything
+     * that is not a regular file or a real directory.
      *
      * @return array{list<string>, list<string>} sub-folder names, leaf file names
      */
@@ -254,9 +261,14 @@ class SiteBuilder
             if ($entry === '.' || $entry === '..' || str_starts_with($entry, '.attachments.')) {
                 continue;
             }
-            if (is_dir($dir . '/' . $entry)) {
+            $path = $dir . '/' . $entry;
+            if ($this->isPlainDir($path)) {
                 $subdirs[] = $entry;
-            } elseif (strcasecmp(pathinfo($entry, PATHINFO_EXTENSION), 'md') === 0 && strcasecmp($entry, 'Readme.md') !== 0) {
+            } elseif (
+                $this->isPlainFile($path)
+                && strcasecmp(pathinfo($entry, PATHINFO_EXTENSION), 'md') === 0
+                && strcasecmp($entry, 'Readme.md') !== 0
+            ) {
                 $leafFiles[] = $entry;
             }
         }
@@ -373,7 +385,8 @@ HTML;
     /**
      * Copies an `.attachments.*` folder, sub-folders included, but only the files
      * isPublishableAttachment() accepts; dot-entries are skipped at every level, files and
-     * folders alike. Skipped files are left out silently, so the build goes on.
+     * folders alike, and so is anything that is not a regular file or a real directory.
+     * Skipped files are left out silently, so the build goes on.
      */
     private function copyDir(string $from, string $to): void
     {
@@ -385,12 +398,28 @@ HTML;
             }
             $source = $from . '/' . $entry;
             $dest = $to . '/' . $entry;
-            if (is_dir($source)) {
+            if ($this->isPlainDir($source)) {
                 $this->copyDir($source, $dest);
-            } elseif ($this->isPublishableAttachment($entry)) {
+            } elseif ($this->isPlainFile($source) && $this->isPublishableAttachment($entry)) {
                 copy($source, $dest);
             }
         }
+    }
+
+    /**
+     * A regular file, not a symlink to one: is_link() looks at the entry itself, so once it is
+     * false, is_file() does too. Every path below the pages directory is built from scandir()
+     * names without `.` and `..`, so with no link followed nothing outside it is ever reached.
+     */
+    private function isPlainFile(string $path): bool
+    {
+        return !is_link($path) && is_file($path);
+    }
+
+    /** A real directory, not a symlink to one; see isPlainFile(). */
+    private function isPlainDir(string $path): bool
+    {
+        return !is_link($path) && is_dir($path);
     }
 
     /**
