@@ -83,6 +83,8 @@ class SiteBuilder
 
     private string $siteTitle = 'Collectives lab';
     private string $theme = self::DEFAULT_THEME;
+    /** The pages directory of the running build, to name export entries relative to it. */
+    private string $pagesDir = '';
 
     public function __construct(
         private MarkdownConverter $markdown = new MarkdownConverter(),
@@ -95,7 +97,9 @@ class SiteBuilder
      *   JSON: null, or an object of the keys listed under "Render options" in
      *   the README. Checked before anything is written to $outDir.
      * @return int Number of rendered pages
-     * @throws InvalidArgumentException if $renderOptions is not null or an object of supported keys and values
+     * @throws InvalidArgumentException if $renderOptions is not null or an object of supported keys and values,
+     *   or a page file's name can't be a page directory (`..md`, `...md`); the latter after output
+     *   was written
      * @throws RuntimeException if $pagesDir is missing or holds no .md file
      */
     public function build(string $pagesDir, string $outDir, string $siteTitle = 'Collectives lab', mixed $renderOptions = null): int
@@ -110,6 +114,7 @@ class SiteBuilder
 
         $this->siteTitle = $siteTitle;
         $this->theme = $theme;
+        $this->pagesDir = $pagesDir;
         $this->ensureDir($outDir);
         copy(__DIR__ . '/style.css', $outDir . '/style.css');
         copy(__DIR__ . '/theme.js', $outDir . '/theme.js');
@@ -194,6 +199,13 @@ class SiteBuilder
 
         foreach ($leafFiles as $file) {
             $slug = basename($file, '.md');
+            // `..md` and `...md` would name the page's directory `.` or `..`: the page would land
+            // on its folder's own index.html or one directory up, from the root outside $outDir.
+            if ($slug === '.' || $slug === '..') {
+                throw new InvalidArgumentException(
+                    "Page file '{$file}' in '{$this->relativePath($dir)}' has no usable name",
+                );
+            }
             // Leaf pages render one level below the `.attachments.*` folders
             // holding their images, so those links need an extra `../`.
             $body = $this->renderMarkdownFile($dir . '/' . $file, '../');
@@ -258,6 +270,12 @@ class SiteBuilder
             $this->sanitizer->sanitize((string)file_get_contents($path)),
             $attachmentPrefix,
         );
+    }
+
+    /** $dir relative to the pages directory, `.` for the pages directory itself. */
+    private function relativePath(string $dir): string
+    {
+        return $dir === $this->pagesDir ? '.' : substr($dir, strlen($this->pagesDir) + 1);
     }
 
     private function article(string $html): string
