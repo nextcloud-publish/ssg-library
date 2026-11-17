@@ -7,8 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Below 60rem the `wiki` sidebar is a drawer that slides in from the left, opened from a button
+  in the site header and closed by that button, by the dimmed page behind it, or by Escape. It
+  used to be a band above the page, which it still is where JavaScript is unavailable and the
+  drawer could not be opened. A layout may now ship a script (`src/themes/<theme>.js`) next to
+  its stylesheet, copied to the output as `layout.js`; `wiki` is the only one that has one.
+
+### Changed
+
+- **BREAKING:** `$renderOptions['theme']` selects a layout instead of a color palette: `wiki`
+  (default) shows the site's whole page tree in a left sidebar, `topnav` the current page's
+  sub-pages as a bar below the site header, one level deep, with the back link at its end.
+  `'muted'` and `'colorful'` are no longer accepted and now raise an `InvalidArgumentException`;
+  their shared colors and typography live in `style.css`.
+- **BREAKING:** the layout stylesheet is copied to the output as `layout.css`, not `palette.css`.
+  Anything referencing the old file name has to be pointed at the new one.
+- Pages no longer repeat their sub-pages as a list in the body — both layouts link them in their
+  navigation. A page without a `Readme.md` shows the empty-page message.
+- The UI chrome text (back link, empty-page message, footer) is the same under both layouts; it
+  used to be worded per theme.
+- Entries whose name starts with a dot are skipped wholesale, rather than only `.attachments.*`.
+
 ### Fixed
 
+- Page names are percent-encoded in navigation links. A `#` or `?` in a name used to cut the
+  link short at a fragment or a query string, and a page named `javascript:…` produced a link
+  with a scheme of its own — on every page under `topnav`, on the site root under `wiki`.
+- Symlinks inside an export are skipped instead of read through. A link pointing out of the
+  export used to have its target published as a file of the site's own, and one pointing at its
+  own parent expanded into as many nested copies of the tree as the OS would resolve.
+- A leaf `.md` file and a folder of the same name no longer render into one output directory,
+  where the folder silently overwrote the leaf. The folder keeps the name, the leaf is numbered
+  off it (`Cats-2`), and the returned page count matches what was written.
+- A folder's own page is recognised whatever its `Readme.md` is spelled like. `README.md` used
+  to be excluded as a leaf page and missed as a Readme, so the folder rendered as an empty page
+  and its content went unwritten.
+- A leaf file's slug drops its extension whatever its case: `Notes.MD` renders as `Notes/`, not
+  `Notes.MD/`.
 - The release notes have one blank line before the CHANGELOG link instead of two.
 
 ## [0.3.0] - 2026-11-11

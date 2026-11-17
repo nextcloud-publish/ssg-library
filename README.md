@@ -30,12 +30,12 @@ the terminal:
 bin/build-site.php <pages-dir> <out-dir> [site-title] [theme]
 ```
 
-`[theme]` is `muted` (default) or `colorful` — see [Render options](#render-options).
+`[theme]` is `wiki` (default) or `topnav` — see [Render options](#render-options).
 
 Try it against the sample export in `examples/pages`:
 
 ```sh
-bin/build-site.php examples/pages examples/output "Sample Site" colorful
+bin/build-site.php examples/pages examples/output "Sample Site" topnav
 ```
 
 Then serve it with PHP's built-in server rather than opening the file
@@ -56,17 +56,23 @@ use SsgLab\SiteBuilder;
 
 $builder = new SiteBuilder();
 $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', renderOptions: [
-    'theme' => 'colorful',
+    'theme' => 'topnav',
 ]);
 ```
 
 - `$pagesDir` is the root of a Collectives export: each folder is a page whose
   content is its `Readme.md`, plain `.md` files sitting next to it are leaf
   sub-pages, and `.attachments.<id>` directories hold that folder's inline
-  images/files.
+  images/files. File extensions and the `Readme.md` name are matched
+  case-insensitively. Dot-prefixed entries are skipped, and so are symlinks —
+  an export is read as the self-contained tree it claims to be, never through a
+  link that could lead out of it.
 - `$outDir` is where the static site is written. Each folder becomes
   `<name>/index.html`; each leaf `.md` file becomes `<name>/index.html` one
-  level below its folder.
+  level below its folder. Where a leaf and a folder of one parent would claim
+  the same name, the folder keeps it and the leaf is numbered off it
+  (`Cats.md` beside `Cats/` renders as `Cats-2/`), so neither overwrites the
+  other.
 - `$renderOptions` is optional and defaults to `null`; see
   [Render options](#render-options).
 - `build()` returns the number of rendered pages. It throws an
@@ -81,14 +87,34 @@ $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', ren
 arrives as an associative array (an empty object decodes to `[]`, so `[]` is
 accepted as well):
 
-| Key     | Type   | Default | Values                |
-| ------- | ------ | ------- | --------------------- |
-| `theme` | string | `muted` | `muted` or `colorful` |
+| Key     | Type   | Default | Values             |
+| ------- | ------ | ------- | ------------------ |
+| `theme` | string | `wiki`  | `wiki` or `topnav` |
 
-`theme` selects the color palette (`src/themes/*.css`) copied to the output as
-`palette.css`, and gives the page chrome (back link, sub-page heading,
-empty-page message, footer) a matching wording. Both palettes support the
-light/dark toggle.
+`theme` picks how a page navigates to the rest of the site. Its stylesheet
+(`src/themes/*.css`) is copied to the output as `layout.css`, and its script, if
+it has one (`src/themes/*.js`), as `layout.js`; everything else — colors,
+typography, prose and the light/dark toggle — is the same under both.
+
+- **`wiki`** puts the site's whole page tree in a sidebar on the left, the same
+  on every page, with the page being shown marked `aria-current="page"`. Below
+  60rem there is no room for it beside the page, so it becomes a drawer that
+  slides in from the left, opened from a button in the site header and closed
+  by that button, by the dimmed page behind it, or by <kbd>Esc</kbd>. With
+  JavaScript unavailable the drawer can't be opened, so the tree falls back to
+  a band above the page and the button is never shown.
+- **`topnav`** puts the current page's own sub-pages in a bar below the site
+  header — one level deep only, no ancestors and no nesting — with the back
+  link to the parent page at its end.
+
+Under neither layout does the page body repeat its sub-pages as a list: the
+sidebar and the bar already link them.
+
+Worth knowing before pointing `wiki` at a large export: every page carries a
+copy of the whole tree, so the output grows with the square of the page count —
+roughly 180 KB for 50 pages, 2 MB for 200, 16 MB for 600. Build time stays well
+under a second throughout. `topnav` carries one level, so its output grows
+linearly.
 
 Anything else — a value that is not an object, an unknown key, or a value
 outside the list — throws an `InvalidArgumentException` whose message names the
@@ -102,7 +128,8 @@ disallowed), run through HTMLPurifier to strip anything unsafe, and includes:
 - GitHub-style task lists (`- [ ]` / `- [x]`).
 
 Generated pages ship with a light/dark theme toggle (`style.css`, `theme.js`),
-copied into the output directory on every build.
+copied into the output directory on every build, alongside the selected
+layout's `layout.css` and — under `wiki` — its `layout.js`.
 
 ### Why sanitization is split into two places
 

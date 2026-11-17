@@ -1,0 +1,56 @@
+/*
+ * `topnav` layout, selected via `theme: 'topnav'` in $renderOptions and copied
+ * to the build output as `layout.css`: the current page's sub-pages as a bar
+ * of links below the site header, one level deep only — no nesting, no
+ * ancestors — with the back link to the parent page at its end. Moving around
+ * the site is a step at a time: down through the bar, up through the back
+ * link. See `wiki.css` for the alternate layout.
+ *
+ * The bar sticks below the site header, which is why `--header-height` is a
+ * fixed token rather than whatever the header's content happens to measure.
+ */
+.topnav {
+    position: sticky;
+    top: var(--header-height);
+    z-index: 9;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 2.9rem;
+    padding: .4rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: saturate(160%) blur(8px);
+}
+
+.topnav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    /* Leaves the back link its place when the bar is full of sub-pages. */
+    min-width: 0;
+}
+
+.topnav li { display: flex; }
+.topnav a {
+    padding: .25rem .7rem;
+    border-radius: 999px;
+    font-size: .9rem;
+}
+.topnav a:hover { background: var(--bg-sunken); }
+
+/* Pushed to the far end of the bar; `.back`'s own colors, not the bar's. */
+.topnav .back {
+    margin-left: auto;
+    padding: .25rem 0;
+    color: var(--text-muted);
+}
+.topnav .back:hover { color: var(--link); }
+
+@media (max-width: 40rem) {
+    .topnav {
+        align-items: flex-start;
+        gap: .4rem;
+        padding: .5rem 1.25rem;
+    }
+}
