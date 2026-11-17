@@ -259,10 +259,38 @@ class SiteBuilderTest extends TestCase
         self::assertFileExists($this->outDir . '/index.html');
     }
 
+    public function testLeafPagesReachAttachmentsOneDirectoryUp(): void
+    {
+        $markdown = "![photo](.attachments.1/a.png)\n\n"
+            . "[report](.attachments.1/r.pdf)\n\n"
+            . "![doc](.attachments.1/d.pdf)\n\n"
+            . "<p style=\"background-image:url(.attachments.1/bg.png)\">bg</p>\n\n"
+            . "Write src=\".attachments.1/a.png\" in prose and `href=\".attachments.1/r.pdf\"` in code.\n";
+        file_put_contents($this->pagesDir . '/Readme.md', $markdown);
+        file_put_contents($this->pagesDir . '/Leaf.md', $markdown);
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        $leaf = (string)file_get_contents($this->outDir . '/Leaf/index.html');
+        self::assertStringContainsString('<img src="../.attachments.1/a.png" alt="photo" />', $leaf);
+        self::assertStringContainsString('<a href="../.attachments.1/r.pdf">report</a>', $leaf);
+        // An embed NonImageEmbedRewriter turned into a link.
+        self::assertStringContainsString('<a href="../.attachments.1/d.pdf">doc</a>', $leaf);
+        self::assertStringContainsString('url(&quot;../.attachments.1/bg.png&quot;)', $leaf);
+        // Text that only looks like an attribute stays as written.
+        self::assertStringContainsString('Write src=".attachments.1/a.png" in prose', $leaf);
+        self::assertStringContainsString('<code>href=".attachments.1/r.pdf"</code>', $leaf);
+
+        $folder = (string)file_get_contents($this->outDir . '/index.html');
+        self::assertStringContainsString('<img src=".attachments.1/a.png" alt="photo" />', $folder);
+        self::assertStringContainsString('url(&quot;.attachments.1/bg.png&quot;)', $folder);
+        self::assertStringNotContainsString('../.attachments.', $folder);
+    }
+
     /**
      * Markdown that tries to get active content into a page, through every stage of the pipeline
-     * that touches the HTML: the multiline table preprocessor, CommonMark and its extensions,
-     * HTMLPurifier and the attachment link rewrite after it.
+     * that touches the HTML: the multiline table preprocessor, CommonMark and its extensions, and
+     * HTMLPurifier with its URI filters, which rewrite attachment paths on leaf pages.
      *
      * @return array<string, array{string}>
      */
@@ -301,7 +329,7 @@ class SiteBuilderTest extends TestCase
             'event handler on a text input' => ['<input type="text" onfocus="alert(1)" autofocus>'],
             'event handler on a checkbox' => ['<input type="checkbox" onclick="alert(1)">'],
             'javascript URL in a style attribute' => ['<p style="background:url(javascript:alert(1))">x</p>'],
-            // Aimed at the regex rewriting attachment links on leaf pages after purification.
+            // Aimed at the attachment path rewrite on leaf pages, once a regex run after purification.
             'attachment path closing the attribute' => ["<img src='.attachments.1/a.png\" onerror=\"alert(1)'>"],
         ];
     }

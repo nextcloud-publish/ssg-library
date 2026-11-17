@@ -30,6 +30,7 @@ class MarkdownConverter
 {
     private LeagueMarkdownConverter $converter;
     private HTMLPurifier $purifier;
+    private AttachmentPathFilter $attachmentPaths;
 
     public function __construct()
     {
@@ -47,10 +48,11 @@ class MarkdownConverter
         $environment->addEventListener(DocumentParsedEvent::class, new NonImageEmbedRewriter());
 
         $this->converter = new LeagueMarkdownConverter($environment);
-        $this->purifier = self::createPurifier();
+        $this->attachmentPaths = new AttachmentPathFilter();
+        $this->purifier = self::createPurifier($this->attachmentPaths);
     }
 
-    private static function createPurifier(): HTMLPurifier
+    private static function createPurifier(AttachmentPathFilter $attachmentPaths): HTMLPurifier
     {
         $config = HTMLPurifier_Config::createDefault();
         $config->set('Cache.DefinitionImpl', null);
@@ -91,18 +93,30 @@ class MarkdownConverter
         $def?->addElement('details', 'Block', 'Flow', 'Common', ['open' => 'Bool']);
         $def?->addElement('summary', 'Inline', 'Inline', 'Common');
 
-        $config->maybeGetRawURIDefinition()?->addFilter(new RootRelativeResourceFilter(), $config);
+        $uriDefinition = $config->maybeGetRawURIDefinition();
+        $uriDefinition?->addFilter(new RootRelativeResourceFilter(), $config);
+        $uriDefinition?->addFilter($attachmentPaths, $config);
 
         return new HTMLPurifier($config);
     }
 
-    public function toHtml(string $content): string
+    /**
+     * @param string $attachmentPrefix Prepended to links into `.attachments.*` folders: `../`
+     *   for a leaf page, which renders one directory below the folder its attachments are in.
+     */
+    public function toHtml(string $content, string $attachmentPrefix = ''): string
     {
         $content = MultilineTablePreprocessor::process(
             $content,
             fn (string $cell): string => $this->converter->convert($cell)->getContent(),
         );
+        $html = $this->converter->convert($content)->getContent();
 
-        return $this->purifier->purify($this->converter->convert($content)->getContent());
+        $this->attachmentPaths->prefix = $attachmentPrefix;
+        try {
+            return $this->purifier->purify($html);
+        } finally {
+            $this->attachmentPaths->prefix = '';
+        }
     }
 }

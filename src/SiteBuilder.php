@@ -196,7 +196,7 @@ class SiteBuilder
             $slug = basename($file, '.md');
             // Leaf pages render one level below the `.attachments.*` folders
             // holding their images, so those links need an extra `../`.
-            $body = $this->rewriteAttachmentLinks($this->renderMarkdownFile($dir . '/' . $file));
+            $body = $this->renderMarkdownFile($dir . '/' . $file, '../');
 
             $this->writePage($outDir . '/' . $slug, $slug, $depth + 1, $this->article($body));
             $pageCount++;
@@ -252,20 +252,12 @@ class SiteBuilder
         return [$subdirs, $leafFiles];
     }
 
-    private function renderMarkdownFile(string $path): string
+    private function renderMarkdownFile(string $path, string $attachmentPrefix = ''): string
     {
         return $this->markdown->toHtml(
             $this->sanitizer->sanitize((string)file_get_contents($path)),
+            $attachmentPrefix,
         );
-    }
-
-    private function rewriteAttachmentLinks(string $html): string
-    {
-        return preg_replace(
-            '/(href|src)="(\.attachments\.[^"]*)"/',
-            '$1="../$2"',
-            $html,
-        ) ?? $html;
     }
 
     private function article(string $html): string
