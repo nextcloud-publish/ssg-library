@@ -31,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Images and CSS `url()` from other hosts or root-relative paths are removed from pages. They
   let a page author track visitors or make them request other paths on the hosting origin.
   External links get `rel="nofollow"`.
+- A page file named `..md` or `...md` fails the build with an `InvalidArgumentException`. Its
+  page directory was `.` or `..`, so it was written over its folder's page or one directory up,
+  from the root outside the output directory.
 
 ## [0.3.0] - 2026-11-11
 

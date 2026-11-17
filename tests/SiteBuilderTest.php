@@ -259,6 +259,50 @@ class SiteBuilderTest extends TestCase
         self::assertFileExists($this->outDir . '/index.html');
     }
 
+    /**
+     * Page files whose name minus `.md` is a dot segment: `..md` is `.`, `...md` is `..`.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function dotSegmentPageFiles(): array
+    {
+        return [
+            '. at the root' => ['..md'],
+            '.. at the root' => ['...md'],
+            '.. in a folder' => ['sub/...md'],
+        ];
+    }
+
+    /**
+     * A dot segment as the page's directory would write over the folder's own page or one
+     * directory up, from the root outside the output directory.
+     */
+    #[DataProvider('dotSegmentPageFiles')]
+    public function testRejectsPageNamesThatAreDotSegments(string $file): void
+    {
+        $this->writePageFile($file);
+        // One level below $this->outDir, so a write one directory up stays in the test's own dir.
+        $outDir = $this->outDir . '/site';
+
+        try {
+            (new SiteBuilder())->build($this->pagesDir, $outDir);
+            self::fail("{$file} was built");
+        } catch (InvalidArgumentException $e) {
+            self::assertStringContainsString(basename($file), $e->getMessage());
+            self::assertStringNotContainsString($this->pagesDir, $e->getMessage());
+        }
+        self::assertFileDoesNotExist($this->outDir . '/index.html');
+    }
+
+    public function testBuildsAPageNamedThreeDots(): void
+    {
+        $this->writePageFile('....md');
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        self::assertFileExists($this->outDir . '/.../index.html');
+    }
+
     public function testLeafPagesReachAttachmentsOneDirectoryUp(): void
     {
         $markdown = "![photo](.attachments.1/a.png)\n\n"
