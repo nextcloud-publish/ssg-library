@@ -2,6 +2,9 @@ vendor/
 composer.lock
 .phpunit.cache/
 examples/output/
+# Local convenience links to a real export live here; they point at absolute
+# paths on one machine and are no use to anyone else.
+examples/Sample-Markdown-Pages
 
 CLAUDE.md
 .php-cs-fixer.cache
