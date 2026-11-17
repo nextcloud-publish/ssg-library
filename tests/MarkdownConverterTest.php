@@ -173,8 +173,84 @@ class MarkdownConverterTest extends TestCase
             'webp' => ['.attachments.1/photo.webp'],
             'query string' => ['.attachments.1/photo.png?preview=1'],
             // Nothing extension-shaped to judge by: could well be an image.
-            'no extension' => ['https://example.com/avatar'],
-            'long suffix' => ['https://example.com/render/x.imagefile'],
+            'no extension' => ['.attachments.1/avatar'],
+            'long suffix' => ['.attachments.1/render/x.imagefile'],
+            'relative path' => ['sub/photo.png'],
+        ];
+    }
+
+    /**
+     * Embeds that would make every visitor fetch from somewhere other than the site: another
+     * host (a tracking pixel) or another path on the hosting origin.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function provideOffSiteEmbeds(): array
+    {
+        return [
+            'Markdown image, external' => ['![pixel](https://tracker.example/p.png)'],
+            'HTML image, external' => ['<img src="https://tracker.example/p.png" alt="pixel">'],
+            'protocol-relative' => ['<img src="//tracker.example/p.png" alt="pixel">'],
+            'plain http' => ['![pixel](http://tracker.example/p.png)'],
+            'root-relative' => ['![pixel](/build?x=1)'],
+            'image in a table cell' => ["| a |\n|---|\n| ![pixel](https://tracker.example/p.png) |"],
+        ];
+    }
+
+    #[DataProvider('provideOffSiteEmbeds')]
+    public function testDropsOffSiteImageEmbeds(string $markdown): void
+    {
+        $html = $this->converter->toHtml($markdown);
+
+        self::assertStringNotContainsString('<img', $html);
+        self::assertStringNotContainsString('tracker.example', $html);
+        self::assertStringNotContainsString('/build', $html);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function provideOffSiteCssUrls(): array
+    {
+        return [
+            'external' => ['https://tracker.example/p.png'],
+            'root-relative' => ['/build?x=1'],
+        ];
+    }
+
+    #[DataProvider('provideOffSiteCssUrls')]
+    public function testDropsOffSiteCssUrls(string $url): void
+    {
+        $html = $this->converter->toHtml("<p style=\"background-image:url({$url})\">text</p>");
+
+        self::assertStringNotContainsString('url(', $html);
+        self::assertStringContainsString('text', $html);
+    }
+
+    public function testMarksExternalLinksNofollow(): void
+    {
+        $html = $this->converter->toHtml('[site](https://example.com/)');
+
+        self::assertStringContainsString('<a href="https://example.com/" rel="nofollow">site</a>', $html);
+    }
+
+    #[DataProvider('provideLocalLinks')]
+    public function testKeepsLocalLinksAsTheyAre(string $url): void
+    {
+        $html = $this->converter->toHtml("[page]({$url})");
+
+        self::assertStringContainsString('<a href="' . $url . '">page</a>', $html);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function provideLocalLinks(): array
+    {
+        return [
+            'relative' => ['sub/'],
+            // A link only leads there on click, unlike an embed, so it stays.
+            'root-relative' => ['/elsewhere/'],
         ];
     }
 

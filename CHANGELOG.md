@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   documents, text, audio/video, archives); dotfiles and everything else, including HTML, SVG
   and JavaScript, are left out. They were copied verbatim and could run script on the
   published site.
+- Images and CSS `url()` from other hosts or root-relative paths are removed from pages. They
+  let a page author track visitors or make them request other paths on the hosting origin.
+  External links get `rel="nofollow"`.
 
 ## [0.3.0] - 2026-11-11
 
