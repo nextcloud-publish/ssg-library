@@ -7,9 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `MarkdownConverter::toHtml()` takes an optional `$attachmentPrefix`, prepended to links into
+  `.attachments.*` folders.
+
 ### Fixed
 
 - The release notes have one blank line before the CHANGELOG link instead of two.
+- On leaf pages, attachment paths are rewritten by HTMLPurifier instead of a regex over its
+  output. Text that looked like an attachment attribute, in prose or inline code, was rewritten
+  too, and CSS `url()` pointing at an attachment wasn't, so such backgrounds broke.
+
+### Security
+
+- Sub-page links percent-encode the page or folder name. A name such as
+  `javascript:alert(1)` linked as a `javascript:` URL, and names containing `?`, `#` or `%`
+  linked to the wrong page.
+- Attachments are published only for an allowlist of file types (images, PDF, office
+  documents, text, audio/video, archives); dotfiles and everything else, including HTML, SVG
+  and JavaScript, are left out. They were copied verbatim and could run script on the
+  published site.
+- Images and CSS `url()` from other hosts or root-relative paths are removed from pages. They
+  let a page author track visitors or make them request other paths on the hosting origin.
+  External links get `rel="nofollow"`.
+- A page file named `..md` or `...md` fails the build with an `InvalidArgumentException`. Its
+  page directory was `.` or `..`, so it was written over its folder's page or one directory up,
+  from the root outside the output directory.
+- Symlinks, FIFOs, devices and sockets in the export are ignored. Symlinks were followed, so a
+  crafted archive could publish any file the build could read, and a link to `/dev/zero`, a
+  FIFO or a pair of links to their own folder could hang the build.
 
 ## [0.3.0] - 2026-11-11
 

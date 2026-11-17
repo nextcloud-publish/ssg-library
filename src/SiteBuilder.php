@@ -21,6 +21,9 @@ use stdClass;
  * relative to the folder the `.md` file lives in — not to the rendered
  * page's own output directory).
  *
+ * Only regular files and real directories of the export are read; symlinks, FIFOs, devices
+ * and sockets are ignored, so nothing outside the pages directory is read or published.
+ *
  * Output mirrors that tree: a folder becomes `<name>/index.html`, a leaf
  * `.md` file becomes `<name>/index.html` one level below its folder. `$depth`
  * threaded through the recursion is how many directories deep the page being
@@ -59,8 +62,32 @@ class SiteBuilder
         ],
     ];
 
+    /**
+     * File extensions, lower-case, of the attachments copied to the output; any other file is
+     * left out. Everything in the output is served from the published origin, so an attachment
+     * a browser renders as a document or runs as script (HTML, SVG, JavaScript…) would run with
+     * that origin's privileges. Only types browsers don't execute are listed. SVG is left out
+     * until it can be sanitized.
+     *
+     * @var list<string>
+     */
+    private const ATTACHMENT_EXTENSIONS = [
+        // Images: NonImageEmbedRewriter::IMAGE_EXTENSIONS without svg and svgz.
+        'apng', 'avif', 'bmp', 'gif', 'heic', 'heif', 'ico', 'jfif', 'jpe', 'jpeg', 'jpg', 'png',
+        'tif', 'tiff', 'webp',
+        // Documents
+        'pdf', 'txt', 'csv', 'md', 'rtf', 'epub', 'odt', 'ods', 'odp', 'odg', 'doc', 'docx', 'xls',
+        'xlsx', 'ppt', 'pptx',
+        // Audio and video
+        'mp3', 'm4a', 'oga', 'ogg', 'opus', 'wav', 'flac', 'mp4', 'm4v', 'mov', 'ogv', 'webm',
+        // Archives
+        'zip', 'gz', 'tgz', 'tar', '7z',
+    ];
+
     private string $siteTitle = 'Collectives lab';
     private string $theme = self::DEFAULT_THEME;
+    /** The pages directory of the running build, to name export entries relative to it. */
+    private string $pagesDir = '';
 
     public function __construct(
         private MarkdownConverter $markdown = new MarkdownConverter(),
@@ -73,7 +100,9 @@ class SiteBuilder
      *   JSON: null, or an object of the keys listed under "Render options" in
      *   the README. Checked before anything is written to $outDir.
      * @return int Number of rendered pages
-     * @throws InvalidArgumentException if $renderOptions is not null or an object of supported keys and values
+     * @throws InvalidArgumentException if $renderOptions is not null or an object of supported keys and values,
+     *   or a page file's name can't be a page directory (`..md`, `...md`); the latter after output
+     *   was written
      * @throws RuntimeException if $pagesDir is missing or holds no .md file
      */
     public function build(string $pagesDir, string $outDir, string $siteTitle = 'Collectives lab', mixed $renderOptions = null): int
@@ -88,6 +117,7 @@ class SiteBuilder
 
         $this->siteTitle = $siteTitle;
         $this->theme = $theme;
+        $this->pagesDir = $pagesDir;
         $this->ensureDir($outDir);
         copy(__DIR__ . '/style.css', $outDir . '/style.css');
         copy(__DIR__ . '/theme.js', $outDir . '/theme.js');
@@ -162,7 +192,10 @@ class SiteBuilder
         $this->ensureDir($outDir);
 
         foreach (glob($dir . '/.attachments.*', GLOB_ONLYDIR) ?: [] as $attachmentsDir) {
-            $this->copyDir($attachmentsDir, $outDir . '/' . basename($attachmentsDir));
+            // GLOB_ONLYDIR also matches symlinks to directories.
+            if ($this->isPlainDir($attachmentsDir)) {
+                $this->copyDir($attachmentsDir, $outDir . '/' . basename($attachmentsDir));
+            }
         }
 
         [$subdirs, $leafFiles] = $this->readEntries($dir);
@@ -172,9 +205,16 @@ class SiteBuilder
 
         foreach ($leafFiles as $file) {
             $slug = basename($file, '.md');
+            // `..md` and `...md` would name the page's directory `.` or `..`: the page would land
+            // on its folder's own index.html or one directory up, from the root outside $outDir.
+            if ($slug === '.' || $slug === '..') {
+                throw new InvalidArgumentException(
+                    "Page file '{$file}' in '{$this->relativePath($dir)}' has no usable name",
+                );
+            }
             // Leaf pages render one level below the `.attachments.*` folders
             // holding their images, so those links need an extra `../`.
-            $body = $this->rewriteAttachmentLinks($this->renderMarkdownFile($dir . '/' . $file));
+            $body = $this->renderMarkdownFile($dir . '/' . $file, '../');
 
             $this->writePage($outDir . '/' . $slug, $slug, $depth + 1, $this->article($body));
             $pageCount++;
@@ -188,7 +228,7 @@ class SiteBuilder
 
         $main = '';
         $readmePath = $dir . '/Readme.md';
-        if (is_file($readmePath)) {
+        if ($this->isPlainFile($readmePath)) {
             $main .= $this->article($this->renderMarkdownFile($readmePath));
             $pageCount++;
         }
@@ -204,8 +244,9 @@ class SiteBuilder
 
     /**
      * Splits a folder's entries into sub-folders and leaf `.md` files,
-     * skipping `Readme.md` (rendered as the folder's own page) and
-     * `.attachments.*` directories (copied verbatim).
+     * skipping `Readme.md` (rendered as the folder's own page),
+     * `.attachments.*` directories (copied by copyDir()) and anything
+     * that is not a regular file or a real directory.
      *
      * @return array{list<string>, list<string>} sub-folder names, leaf file names
      */
@@ -220,9 +261,14 @@ class SiteBuilder
             if ($entry === '.' || $entry === '..' || str_starts_with($entry, '.attachments.')) {
                 continue;
             }
-            if (is_dir($dir . '/' . $entry)) {
+            $path = $dir . '/' . $entry;
+            if ($this->isPlainDir($path)) {
                 $subdirs[] = $entry;
-            } elseif (strcasecmp(pathinfo($entry, PATHINFO_EXTENSION), 'md') === 0 && strcasecmp($entry, 'Readme.md') !== 0) {
+            } elseif (
+                $this->isPlainFile($path)
+                && strcasecmp(pathinfo($entry, PATHINFO_EXTENSION), 'md') === 0
+                && strcasecmp($entry, 'Readme.md') !== 0
+            ) {
                 $leafFiles[] = $entry;
             }
         }
@@ -230,20 +276,18 @@ class SiteBuilder
         return [$subdirs, $leafFiles];
     }
 
-    private function renderMarkdownFile(string $path): string
+    private function renderMarkdownFile(string $path, string $attachmentPrefix = ''): string
     {
         return $this->markdown->toHtml(
             $this->sanitizer->sanitize((string)file_get_contents($path)),
+            $attachmentPrefix,
         );
     }
 
-    private function rewriteAttachmentLinks(string $html): string
+    /** $dir relative to the pages directory, `.` for the pages directory itself. */
+    private function relativePath(string $dir): string
     {
-        return preg_replace(
-            '/(href|src)="(\.attachments\.[^"]*)"/',
-            '$1="../$2"',
-            $html,
-        ) ?? $html;
+        return $dir === $this->pagesDir ? '.' : substr($dir, strlen($this->pagesDir) + 1);
     }
 
     private function article(string $html): string
@@ -252,7 +296,7 @@ class SiteBuilder
     }
 
     /**
-     * @param list<string> $children Sub-page names, linked as `<name>/`
+     * @param list<string> $children Sub-page names, linked as `<url-encoded name>/`
      */
     private function subPageList(array $children): string
     {
@@ -262,8 +306,11 @@ class SiteBuilder
 
         $items = '';
         foreach ($children as $child) {
-            $name = $this->e($child);
-            $items .= '<li><a href="' . $name . '/">' . $name . '</a></li>';
+            // Encoded as a URL path segment, not just HTML-escaped: `:` would let a
+            // name like `javascript:…` form a URL scheme, and `?`, `#`, `%` would
+            // point somewhere other than the directory written to disk.
+            // rawurlencode() only emits [A-Za-z0-9-_.~%], so the href needs no escaping.
+            $items .= '<li><a href="' . rawurlencode($child) . '/">' . $this->e($child) . '</a></li>';
         }
 
         return '<nav class="subpages"><h2>' . $this->copy('subpagesHeading') . '</h2><ul>' . $items . '</ul></nav>';
@@ -335,21 +382,54 @@ HTML;
         }
     }
 
+    /**
+     * Copies an `.attachments.*` folder, sub-folders included, but only the files
+     * isPublishableAttachment() accepts; dot-entries are skipped at every level, files and
+     * folders alike, and so is anything that is not a regular file or a real directory.
+     * Skipped files are left out silently, so the build goes on.
+     */
     private function copyDir(string $from, string $to): void
     {
         $this->ensureDir($to);
         foreach (scandir($from) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
+            // Also covers `.` and `..`.
+            if (str_starts_with($entry, '.')) {
                 continue;
             }
             $source = $from . '/' . $entry;
             $dest = $to . '/' . $entry;
-            if (is_dir($source)) {
+            if ($this->isPlainDir($source)) {
                 $this->copyDir($source, $dest);
-            } else {
+            } elseif ($this->isPlainFile($source) && $this->isPublishableAttachment($entry)) {
                 copy($source, $dest);
             }
         }
+    }
+
+    /**
+     * A regular file, not a symlink to one: is_link() looks at the entry itself, so once it is
+     * false, is_file() does too. Every path below the pages directory is built from scandir()
+     * names without `.` and `..`, so with no link followed nothing outside it is ever reached.
+     */
+    private function isPlainFile(string $path): bool
+    {
+        return !is_link($path) && is_file($path);
+    }
+
+    /** A real directory, not a symlink to one; see isPlainFile(). */
+    private function isPlainDir(string $path): bool
+    {
+        return !is_link($path) && is_dir($path);
+    }
+
+    /**
+     * Whether an attachment file may be published: not a dotfile, and its last extension, in
+     * any case, is in self::ATTACHMENT_EXTENSIONS. A file without an extension is not.
+     */
+    private function isPublishableAttachment(string $name): bool
+    {
+        return !str_starts_with($name, '.')
+            && in_array(strtolower(pathinfo($name, PATHINFO_EXTENSION)), self::ATTACHMENT_EXTENSIONS, true);
     }
 
     private function e(string $value): string
