@@ -46,6 +46,15 @@ class SiteBuilder
     /** Theme used when the `theme` render option isn't given. */
     private const DEFAULT_THEME = 'wiki';
 
+    /**
+     * How many hues the `data-section` attribute below is handed out from, i.e.
+     * how many `--hue-N` tokens `src/themes/topnav.css` defines. The two have
+     * to agree: a site with more top-level pages than there are hues wraps
+     * around, and wrapping past a hue that doesn't exist would leave those
+     * pages with no color at all.
+     */
+    private const SECTION_HUES = 7;
+
     /** Heading above the `wiki` sidebar's page tree. */
     private const SIDEBAR_HEADING = 'Contents';
 
@@ -588,13 +597,58 @@ HTML;
     private function navList(array $children, array $basePath, string $prefix, ?string $currentSlug): string
     {
         $items = '';
-        foreach ($children as $child) {
+        foreach ($children as $index => $child) {
             $marker = $child->slug === $currentSlug ? ' aria-current="page"' : '';
+            // An empty base path means these are the site's own top-level
+            // pages, wherever in the navigation they turn up, so their index
+            // here is the index the section hue is handed out by.
+            $section = $basePath === [] ? $this->sectionAttr($index) : '';
             $href = $this->url([...$basePath, $child->slug], $prefix);
-            $items .= '<li><a href="' . $this->e($href) . '"' . $marker . '>' . $this->e($child->title) . '</a></li>';
+            $items .= '<li><a href="' . $this->e($href) . '"' . $section . $marker . '>' . $this->e($child->title) . '</a></li>';
         }
 
         return $items;
+    }
+
+    /**
+     * The `data-section` attribute for the $index'th of the site's top-level
+     * pages: which of the hues it is drawn in, one-based, wrapped around the
+     * palette once there are more top-level pages than hues.
+     *
+     * An ordinal rather than a color: which colors there are — and whether a
+     * layout draws anything in them at all, `wiki` currently doesn't — is the
+     * stylesheet's business, the same division `url()` and the rest of the
+     * chrome keep.
+     */
+    private function sectionAttr(int $index): string
+    {
+        return ' data-section="' . ($index % self::SECTION_HUES + 1) . '"';
+    }
+
+    /**
+     * The `data-section` attribute for the page $path leads to: the section of
+     * whichever top-level page it sits under, which is the first slug of its
+     * path — so every page of a section carries its section's hue, however
+     * deep it is. Empty for the root page, which is under no top-level page
+     * but holds all of them.
+     *
+     * @param list<string> $path Slugs from the site root down to the page being written
+     */
+    private function sectionAttrFor(array $path): string
+    {
+        if ($path === []) {
+            return '';
+        }
+
+        foreach ($this->tree->children as $index => $child) {
+            if ($child->slug === $path[0]) {
+                return $this->sectionAttr($index);
+            }
+        }
+
+        // Unreachable for a page the recursion is writing: the tree was
+        // scanned off the same directories it walks.
+        return '';
     }
 
     /**
@@ -759,6 +813,11 @@ HTML;
         // gets the handle that opens it — bar the page that has no navigation
         // at all, which under `topnav` is every page of a single-page site.
         $navToggle = $nav === '' ? '' : $this->navToggle($toggleLabel);
+        // Which top-level page this one sits under, for the layout to color
+        // the page by. On the body rather than on the title alone: it is a
+        // fact about the whole page, and anything a layout wants to tint by
+        // section inherits the hue from here.
+        $section = $this->sectionAttrFor($path);
         $pageHeaderInner = $upAboveTitle . '<h1 class="page-title">' . $title . '</h1>';
         $afterHeader = '<hr class="page-divider">'
             . $main
@@ -779,7 +838,7 @@ HTML;
         <script src="{$themeScript}"></script>
         <script src="{$navScript}"></script>
     </head>
-    <body>
+    <body{$section}>
         <header class="site-header">
             {$navToggle}
             <a href="{$root}">{$siteTitle}</a>

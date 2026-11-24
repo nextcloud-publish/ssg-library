@@ -174,10 +174,14 @@ class SiteBuilderTest extends TestCase
 
         (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample', ['theme' => 'topnav']);
 
+        // Top-level pages carry a `data-section` ordinal wherever they're
+        // linked from (SiteBuilder::sectionAttr()) — "about" is the site's
+        // first top-level page, "Cats" its second, in the order writePages()
+        // lays them out on disk.
         $cats = (string)file_get_contents($this->outDir . '/Cats/index.html');
         $primary = $this->topnavOf($cats);
-        self::assertStringContainsString('<a href="../about/">about</a>', $primary);
-        self::assertStringContainsString('<a href="../Cats/" aria-current="page">Cats</a>', $primary);
+        self::assertStringContainsString('<a href="../about/" data-section="1">about</a>', $primary);
+        self::assertStringContainsString('<a href="../Cats/" data-section="2" aria-current="page">Cats</a>', $primary);
         self::assertStringNotContainsString('>Paws</a>', $primary);
 
         self::assertStringContainsString('<a href="../Cats/Paws/">Paws</a>', $this->subnavOf($cats));
@@ -187,8 +191,8 @@ class SiteBuilderTest extends TestCase
         // rather than sit alone in a secondary bar under an empty one.
         $root = (string)file_get_contents($this->outDir . '/index.html');
         self::assertSame('', $this->subnavOf($root));
-        self::assertStringContainsString('<a href="about/">about</a>', $this->topnavOf($root));
-        self::assertStringContainsString('<a href="Cats/">Cats</a>', $this->topnavOf($root));
+        self::assertStringContainsString('<a href="about/" data-section="1">about</a>', $this->topnavOf($root));
+        self::assertStringContainsString('<a href="Cats/" data-section="2">Cats</a>', $this->topnavOf($root));
 
         // "about" is a leaf one level down: with no children of its own to
         // pair with a secondary bar, and its parent being the root — which
@@ -197,16 +201,35 @@ class SiteBuilderTest extends TestCase
         // with children of its own.
         $aboutSingle = (string)file_get_contents($this->outDir . '/about/index.html');
         self::assertSame('', $this->subnavOf($aboutSingle));
-        self::assertStringContainsString('<a href="../about/" aria-current="page">about</a>', $this->topnavOf($aboutSingle));
+        self::assertStringContainsString('<a href="../about/" data-section="1" aria-current="page">about</a>', $this->topnavOf($aboutSingle));
 
         // "Paws" is a leaf two levels down: its own siblings (itself alone,
         // having none) move to the secondary bar, and the primary bar above
         // becomes its parent's siblings, "Cats" highlighted there instead.
         $leaf = (string)file_get_contents($this->outDir . '/Cats/Paws/index.html');
         $leafPrimary = $this->topnavOf($leaf);
-        self::assertStringContainsString('<a href="../../about/">about</a>', $leafPrimary);
-        self::assertStringContainsString('<a href="../../Cats/" aria-current="page">Cats</a>', $leafPrimary);
+        self::assertStringContainsString('<a href="../../about/" data-section="1">about</a>', $leafPrimary);
+        self::assertStringContainsString('<a href="../../Cats/" data-section="2" aria-current="page">Cats</a>', $leafPrimary);
         self::assertStringContainsString('aria-current="page">Paws</a>', $this->subnavOf($leaf));
+    }
+
+    /**
+     * The hue a top-level page is colored by follows it onto every page under
+     * it, via `data-section` on `<body>` (SiteBuilder::sectionAttrFor()) —
+     * not just the one `<li>` in the navbar. The root page, under no section,
+     * carries none.
+     */
+    public function testTopLevelPagesCarryTheirSectionOntoEveryPageUnderThem(): void
+    {
+        $this->writePages();
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample', ['theme' => 'topnav']);
+
+        self::assertStringContainsString('<body data-section="1">', (string)file_get_contents($this->outDir . '/about/index.html'));
+        self::assertStringContainsString('<body data-section="2">', (string)file_get_contents($this->outDir . '/Cats/index.html'));
+        // A leaf two levels down still carries its top-level ancestor's section.
+        self::assertStringContainsString('<body data-section="2">', (string)file_get_contents($this->outDir . '/Cats/Paws/index.html'));
+        self::assertStringContainsString('<body>', (string)file_get_contents($this->outDir . '/index.html'));
     }
 
     /**

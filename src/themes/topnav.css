@@ -23,8 +23,10 @@
  * media query at the bottom), where the two together slide out of the header
  * as one drawer.
  *
- * A darker, blue-accented palette, scoped to this layout alone by living here
- * rather than in the shared style.css tokens `wiki` also reads.
+ * A darker, blue-accented palette, plus a rainbow the site's top-level pages
+ * are handed out of — each one, and every page under it, drawn in its own
+ * hue. Both are scoped to this layout alone by living here rather than in the
+ * shared style.css tokens `wiki` also reads.
  */
 :root {
     --bg: light-dark(#fafbfe, #10121c);
@@ -37,14 +39,36 @@
     --accent: light-dark(#3b50c9, #8da3ef);
 
     /*
-     * The same hue as `--accent`, taken down in saturation and brightness: the
-     * page title wants to be read as a title rather than as text, but the one
-     * accent-colored thing on the screen is the brand in the navbar, and a
-     * title at full accent would stand level with it. It stays under the
-     * brand's contrast against `--bg` in both schemes while keeping well clear
-     * of the 3:1 large-text floor — a quieter color, not a faded one.
+     * The same hue as `--accent`, taken down in saturation and brightness,
+     * shared by the brand in the navbar and the root page's own title — the
+     * one page under no section, so the one page where the two read as one
+     * family instead of the title taking its section's rainbow hue. It stays
+     * well clear of the 3:1 large-text floor in both schemes — a quieter
+     * color, not a faded one.
      */
     --accent-soft: light-dark(#6472b8, #8f9ace);
+
+    /*
+     * One hue per top-level page, handed out in the order they appear and
+     * wrapped around once a site has more of them than there are hues here
+     * (SiteBuilder::SECTION_HUES has to match this count). Rainbow order, so
+     * neighbouring sections are neighbouring hues and a navbar read left to
+     * right runs through the spectrum rather than jumping about in it.
+     *
+     * Every one clears 4.5:1 against its scheme's `--bg`, which the small
+     * navbar links need and the titles get for free: the light values are
+     * darkened well past their nominal hue (the yellow especially, which at
+     * full brightness is unreadable on anything pale), the dark ones lifted
+     * towards pastel. Blue is `--accent` itself in dark, near enough in light,
+     * so a blue section sits level with the brand rather than beside it.
+     */
+    --hue-1: light-dark(#c62828, #ff8a80); /* red */
+    --hue-2: light-dark(#a84c00, #ffb15e); /* orange */
+    --hue-3: light-dark(#8a6a00, #e8c75a); /* yellow */
+    --hue-4: light-dark(#1e7a3c, #6fd68a); /* green */
+    --hue-5: light-dark(#00707f, #58d0d8); /* cyan */
+    --hue-6: light-dark(#2f4ac4, #8da3ef); /* blue */
+    --hue-7: light-dark(#7a3bbf, #c89bf5); /* violet */
 
     /*
      * Taller than the shared default: both `.site-header` (style.css) and
@@ -54,18 +78,31 @@
     --header-height: 4.5rem;
 }
 
-.site-header {
-    text-transform: none;
-    letter-spacing: normal;
-}
+/*
+ * `data-section` is an ordinal, written by SiteBuilder on each top-level
+ * page's navbar link and on the `<body>` of every page under it (see
+ * `sectionAttr()`); this is the one place it turns into a color. Resolving it
+ * into a single inherited token rather than setting `color` seven times over
+ * keeps the rules that actually paint something down to the two below — and
+ * lets the `<body>`'s hue reach anything inside the page that wants it,
+ * whether or not that thing carries the attribute itself.
+ */
+[data-section="1"] { --section-hue: var(--hue-1); }
+[data-section="2"] { --section-hue: var(--hue-2); }
+[data-section="3"] { --section-hue: var(--hue-3); }
+[data-section="4"] { --section-hue: var(--hue-4); }
+[data-section="5"] { --section-hue: var(--hue-5); }
+[data-section="6"] { --section-hue: var(--hue-6); }
+[data-section="7"] { --section-hue: var(--hue-7); }
+
 .site-header > a {
     font-family: var(--serif);
     font-size: 1.15rem;
     font-weight: 500;
-    color: var(--accent);
+    color: var(--accent-soft);
 }
 .site-header > a:hover {
-    color: var(--accent);
+    color: var(--accent-soft);
     text-decoration: underline;
 }
 
@@ -106,6 +143,21 @@
 .topnav li a, .subnav li a { padding: .2rem 0; }
 /* The weight is shared (style.css); the full-strength color is this layout's. */
 .topnav li a[aria-current], .subnav li a[aria-current] { color: var(--text); }
+
+/*
+ * A top-level page in its section's color, wherever in the two bars it turns
+ * up. Deliberately after the rule above and at the same specificity, so the
+ * current page keeps its hue and is marked by weight alone: the color is what
+ * says which section a link leads to, and the one link that would lose it is
+ * the one whose section the reader is standing in.
+ *
+ * Which also costs the shared hover its color change (style.css takes these
+ * links to `--link`), so the hover is an underline here instead — the same
+ * affordance the brand above already uses, and one that doesn't have to pick
+ * a second color per section to say the same thing.
+ */
+.topnav li a[data-section], .subnav li a[data-section] { color: var(--section-hue); }
+.topnav li a[data-section]:hover, .subnav li a[data-section]:hover { text-decoration: underline; }
 
 /* The primary bar, fixed over the header's row — see the note up top. */
 .topnav {
@@ -151,8 +203,14 @@
     text-align: center;
 }
 
+/*
+ * The title in the color of the section the page is in — the same color its
+ * top-level page is drawn in up in the navbar, so a page says where it sits
+ * before its words are read. The fallback is the root page, the one page
+ * under no section at all, which instead takes the brand's own blue, above.
+ */
 .page-title {
-    color: var(--accent-soft);
+    color: var(--section-hue, var(--accent-soft));
 }
 
 /*
