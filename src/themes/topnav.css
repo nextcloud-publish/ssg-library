@@ -36,6 +36,16 @@
     --accent: light-dark(#3b50c9, #8da3ef);
 
     /*
+     * The same hue as `--accent`, taken down in saturation and brightness: the
+     * page title wants to be read as a title rather than as text, but the one
+     * accent-colored thing on the screen is the brand in the navbar, and a
+     * title at full accent would stand level with it. It stays under the
+     * brand's contrast against `--bg` in both schemes while keeping well clear
+     * of the 3:1 large-text floor — a quieter color, not a faded one.
+     */
+    --accent-soft: light-dark(#6472b8, #8f9ace);
+
+    /*
      * Taller than the shared default: both `.site-header` (style.css) and
      * `.topnav` below key off this same token, so overriding it here keeps
      * the two in lockstep without having to repeat the height in both places.
@@ -124,6 +134,10 @@
 /* The title sits centred in this layout, under its centred bars. */
 .page-header {
     text-align: center;
+}
+
+.page-title {
+    color: var(--accent-soft);
 }
 
 @media (max-width: 40rem) {

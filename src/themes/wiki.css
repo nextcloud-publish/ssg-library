@@ -117,6 +117,15 @@ body {
 }
 
 /*
+ * The title of the page being shown takes the same accent as the tree's root
+ * entry above, so the two serif lines either side of the sidebar's border read
+ * as the one pair: where you are in the site, and where in it you are.
+ */
+.page-title {
+    color: var(--accent);
+}
+
+/*
  * The root's direct children (top-level folders/pages) read as section
  * headings rather than nested pages: no indent guide, just weight and
  * spacing to set each group apart.
