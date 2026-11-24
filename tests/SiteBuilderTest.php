@@ -130,30 +130,54 @@ class SiteBuilderTest extends TestCase
     }
 
     /**
-     * The bar holds the current page's own sub-pages and nothing else: no
-     * ancestors, no grandchildren — those are a back link and a click away.
+     * Ordinarily the primary bar holds the current page's siblings, itself
+     * marked `aria-current="page"`, and the secondary bar below it the
+     * current page's own children. At the deepest level, where there are no
+     * children to put in the secondary bar, the pair shifts up one level
+     * instead: the current page joins its siblings in the secondary bar, and
+     * the primary bar above becomes its parent's own siblings, the parent
+     * highlighted there. Ancestors further up and grandchildren are neither
+     * bar — those are the "Up" link above the title and a click away.
      */
-    public function testTopnavThemeLinksOnlyTheCurrentPagesChildren(): void
+    public function testTopnavThemeShowsSiblingsAboveChildren(): void
     {
         $this->writePages();
 
         (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample', ['theme' => 'topnav']);
 
-        $cats = $this->navOf((string)file_get_contents($this->outDir . '/Cats/index.html'));
-        self::assertStringContainsString('<a href="Paws/">Paws</a>', $cats);
-        self::assertStringContainsString('<a class="back" href="../">', $cats);
-        self::assertStringNotContainsString('>about</a>', $cats);
-        self::assertStringNotContainsString('<aside class="sidebar"', $cats);
+        $cats = (string)file_get_contents($this->outDir . '/Cats/index.html');
+        $primary = $this->topnavOf($cats);
+        self::assertStringContainsString('<a href="../about/">about</a>', $primary);
+        self::assertStringContainsString('<a href="../Cats/" aria-current="page">Cats</a>', $primary);
+        self::assertStringNotContainsString('>Paws</a>', $primary);
 
-        // The root page has sub-pages to link, but no parent to go back to.
-        $root = $this->navOf((string)file_get_contents($this->outDir . '/index.html'));
-        self::assertStringContainsString('<a href="Cats/">Cats</a>', $root);
-        self::assertStringNotContainsString('class="back"', $root);
+        self::assertStringContainsString('<a href="../Cats/Paws/">Paws</a>', $this->subnavOf($cats));
 
-        // A leaf page has neither, so it gets the back link alone.
-        $leaf = $this->navOf((string)file_get_contents($this->outDir . '/Cats/Paws/index.html'));
-        self::assertStringStartsWith('<nav class="topnav"', $leaf);
-        self::assertStringNotContainsString('<ul>', $leaf);
+        // The root page has no parent and so no siblings: with only one
+        // level to show, its own children take the primary bar's place
+        // rather than sit alone in a secondary bar under an empty one.
+        $root = (string)file_get_contents($this->outDir . '/index.html');
+        self::assertSame('', $this->subnavOf($root));
+        self::assertStringContainsString('<a href="about/">about</a>', $this->topnavOf($root));
+        self::assertStringContainsString('<a href="Cats/">Cats</a>', $this->topnavOf($root));
+
+        // "about" is a leaf one level down: with no children of its own to
+        // pair with a secondary bar, and its parent being the root — which
+        // has no siblings of its own to shift up to — its own siblings stay
+        // in the primary bar, itself highlighted there, same as any page
+        // with children of its own.
+        $aboutSingle = (string)file_get_contents($this->outDir . '/about/index.html');
+        self::assertSame('', $this->subnavOf($aboutSingle));
+        self::assertStringContainsString('<a href="../about/" aria-current="page">about</a>', $this->topnavOf($aboutSingle));
+
+        // "Paws" is a leaf two levels down: its own siblings (itself alone,
+        // having none) move to the secondary bar, and the primary bar above
+        // becomes its parent's siblings, "Cats" highlighted there instead.
+        $leaf = (string)file_get_contents($this->outDir . '/Cats/Paws/index.html');
+        $leafPrimary = $this->topnavOf($leaf);
+        self::assertStringContainsString('<a href="../../about/">about</a>', $leafPrimary);
+        self::assertStringContainsString('<a href="../../Cats/" aria-current="page">Cats</a>', $leafPrimary);
+        self::assertStringContainsString('aria-current="page">Paws</a>', $this->subnavOf($leaf));
     }
 
     /**
@@ -281,6 +305,22 @@ class SiteBuilderTest extends TestCase
     private function navOf(string $html): string
     {
         preg_match('#<aside class="sidebar".*?</aside>|<nav class="topnav".*?</nav>#s', $html, $match);
+
+        return $match[0] ?? '';
+    }
+
+    /** The `topnav` layout's primary bar alone — the current page's siblings. */
+    private function topnavOf(string $html): string
+    {
+        preg_match('#<nav class="topnav".*?</nav>#s', $html, $match);
+
+        return $match[0] ?? '';
+    }
+
+    /** The `topnav` layout's secondary bar alone — the current page's own children. */
+    private function subnavOf(string $html): string
+    {
+        preg_match('#<nav class="subnav".*?</nav>#s', $html, $match);
 
         return $match[0] ?? '';
     }

@@ -122,15 +122,6 @@ a:hover { text-decoration-thickness: 2px; }
 }
 :root[data-theme="dark"] .theme-toggle .disc-fill { transform: rotate(180deg); }
 
-footer {
-    max-width: var(--measure);
-    margin: 4rem auto 0;
-    padding: 1.25rem 1.5rem 3rem;
-    border-top: 1px solid var(--border);
-    color: var(--text-muted);
-    font-size: .8rem;
-}
-
 /* ---------- Page frame ---------- */
 
 main {
@@ -139,29 +130,9 @@ main {
     padding: 0 1.5rem;
 }
 
-/*
- * Title and the back link share one row: the title sets the row's height and
- * the link is pushed to the far end, baseline-aligned with it. The underline
- * and its accent segment belong to the row, so they span both.
- */
+/* Eyebrow and title stack above the meta/divider/content/divider/prev-next below. */
 .page-header {
-    position: relative;
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1.5rem;
     margin: 3rem 0 0;
-    padding-bottom: .6rem;
-    border-bottom: 1px solid var(--border-strong);
-}
-.page-header::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    bottom: -1px;
-    width: 3.5rem;
-    height: 2px;
-    background: var(--accent);
 }
 
 .page-title {
@@ -171,21 +142,71 @@ main {
     line-height: 1.15;
     letter-spacing: -.01em;
     margin: 0;
-    /* Let a long title wrap instead of squeezing the back link. */
-    min-width: 0;
     overflow-wrap: break-word;
 }
 
 .page { margin-top: 2rem; }
 
-.back {
-    flex: none;
+/* Link to the immediate parent, above the title; empty and absent on the root page. */
+.page-up {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    margin: 0 0 .8rem;
     color: var(--text-muted);
     font-size: .85rem;
     text-decoration: none;
-    white-space: nowrap;
 }
-.back:hover { color: var(--link); text-decoration: underline; }
+.page-up:hover {
+    color: var(--link);
+    text-decoration: underline;
+}
+
+.page-meta {
+    margin: .6rem 0 0;
+    color: var(--text-muted);
+    font-size: .85rem;
+}
+
+.page-divider {
+    height: 1px;
+    margin: 1.75rem 0;
+    border: 0;
+    background: var(--border);
+}
+
+/* Prev on the left, next on the right; an empty span holds the other end's place when there is none. */
+.page-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+.page-nav-link {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    text-decoration: none;
+}
+.page-nav-next {
+    text-align: right;
+}
+.page-nav-label {
+    font-family: var(--sans);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.page-nav-title {
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    color: var(--text);
+}
+.page-nav-link:hover .page-nav-title {
+    color: var(--link);
+}
 
 /* ---------- Prose ---------- */
 
@@ -405,7 +426,7 @@ main {
 }
 
 @media print {
-    .site-header, .sidebar, .topnav, .back, .theme-toggle { display: none; }
+    .site-header, .sidebar, .topnav, .subnav, .theme-toggle { display: none; }
     body { background: #fff; color: #000; }
     main { max-width: none; }
     .content a { text-decoration: none; color: inherit; }

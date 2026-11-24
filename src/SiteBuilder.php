@@ -56,8 +56,11 @@ class SiteBuilder
     /** Heading above the `wiki` sidebar's page tree. */
     private const SIDEBAR_HEADING = 'Contents';
 
-    /** Accessible name of the `topnav` bar, which carries no visible heading. */
+    /** Accessible name of the `topnav` layout's primary bar — the current page and its siblings. */
     private const TOPNAV_LABEL = 'Pages';
+
+    /** Accessible name of the `topnav` layout's secondary bar — the current page's own children. */
+    private const SUBNAV_LABEL = 'Section pages';
 
     /** `id` the sidebar's heading is referenced by, for its `aria-labelledby`. */
     private const SIDEBAR_HEADING_ID = 'page-tree-heading';
@@ -65,13 +68,12 @@ class SiteBuilder
     /** `id` the sidebar is referenced by, for the drawer toggle's `aria-controls`. */
     private const SIDEBAR_ID = 'page-tree';
 
-    private const BACK = '← Back';
     private const NO_CONTENT = 'This page has no content yet.';
 
-    /** Label the `wiki` layout's breadcrumb uses for the site root. */
-    private const HOME = 'Home';
+    /** Label the "Up" link above a page's title uses, next to its arrow. */
+    private const UP_LABEL = 'Up';
 
-    /** Labels either side of the `wiki` layout's prev/next page links. */
+    /** Labels either side of the prev/next page links below a page's content. */
     private const PREV_LABEL = 'Prev';
     private const NEXT_LABEL = 'Next';
 
@@ -109,11 +111,11 @@ class SiteBuilder
     private PageNode $tree;
 
     /**
-     * The tree flattened into the `wiki` layout's reading order — pre-order,
-     * root first then each child in turn, the same order renderDirectory()
-     * writes pages in — so a page's prev/next neighbour is just its index's
-     * neighbour. Built once in build() alongside $tree, for the same reason:
-     * a page's neighbours aren't known from its own folder alone.
+     * The tree flattened into reading order — pre-order, root first then each
+     * child in turn, the same order renderDirectory() writes pages in — so a
+     * page's prev/next neighbour is just its index's neighbour. Built once in
+     * build() alongside $tree, for the same reason: a page's neighbours
+     * aren't known from its own folder alone.
      *
      * @var list<array{path: list<string>, title: string}>
      */
@@ -457,31 +459,114 @@ HTML;
     }
 
     /**
-     * The `topnav` layout's navigation: one level only — the current page's
-     * own sub-pages, which sit directly below it in the output — plus the back
-     * link up to its parent.
+     * The `topnav` layout's navigation, never an empty bar: ordinarily two,
+     * a primary one carrying the current page's siblings (pages sharing its
+     * own parent), with the current page itself marked `aria-current="page"`,
+     * and a secondary one below it carrying the current page's own children.
+     * The way back up a level is the "Up" button, left of whichever bar
+     * carries the current page's own siblings — primary ordinarily, secondary
+     * at the deepest level (see below) — rather than either bar's own links.
      *
-     * @param list<string> $current Slugs from the site root down to the page being written
-     * @param string $back The back link, empty on the root page
+     * At the deepest level a page has no children to put in the secondary
+     * bar, so the pair shifts up one level instead: the current page joins
+     * its siblings in the secondary bar, highlighted there, and the primary
+     * bar above becomes its parent's own siblings, the parent highlighted.
+     * The root page has no parent and so no siblings — nothing for the
+     * primary bar to show — in which case its own children take its place:
+     * the one level the landing page has to show reads as the one navbar it
+     * gets, nothing in it highlighted, since the root isn't among its own
+     * children, and no "Up" button, since it has nowhere to go up to. One
+     * level down, where the deepest case would promote the root itself —
+     * which has no siblings of its own — there's no parent level to shift up
+     * to either, so that page's own siblings stay in the primary bar instead
+     * of moving down, the same as any page with children of its own.
+     *
+     * @param list<string> $path Slugs from the site root down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
      */
-    private function topNav(array $current, string $back): string
+    private function topNav(array $path, string $prefix): string
     {
-        $items = '';
-        foreach ($this->childrenAt($current) as $child) {
-            // A child sits directly below the current page, so its URL is
-            // relative to that page rather than to the site root.
-            $href = $this->url([$child->slug], '');
-            $items .= '<li><a href="' . $this->e($href) . '">' . $this->e($child->title) . '</a></li>';
+        $up = $this->upButton($path, $prefix);
+
+        if ($path === []) {
+            $ownChildren = $this->navList($this->childrenAt($path), $path, $prefix, null);
+
+            return $ownChildren === '' ? '' : $this->navBar('topnav', self::TOPNAV_LABEL, '', $ownChildren);
         }
 
-        if ($items === '' && $back === '') {
+        $parentPath = array_slice($path, 0, -1);
+        $currentSlug = $path[array_key_last($path)];
+        $children = $this->childrenAt($path);
+
+        if ($children !== []) {
+            $siblings = $this->navList($this->childrenAt($parentPath), $parentPath, $prefix, $currentSlug);
+            $ownChildren = $this->navList($children, $path, $prefix, null);
+
+            return $this->navBar('topnav', self::TOPNAV_LABEL, $up, $siblings)
+                . $this->navBar('subnav', self::SUBNAV_LABEL, '', $ownChildren);
+        }
+
+        $ownSiblings = $this->navList($this->childrenAt($parentPath), $parentPath, $prefix, $currentSlug);
+
+        if ($parentPath === []) {
+            return $this->navBar('topnav', self::TOPNAV_LABEL, $up, $ownSiblings);
+        }
+
+        $parentSlug = $parentPath[array_key_last($parentPath)];
+        $grandparentPath = array_slice($parentPath, 0, -1);
+        $parentSiblings = $this->navList($this->childrenAt($grandparentPath), $grandparentPath, $prefix, $parentSlug);
+
+        return $this->navBar('topnav', self::TOPNAV_LABEL, $up, $parentSiblings)
+            . $this->navBar('subnav', self::SUBNAV_LABEL, '', $ownSiblings);
+    }
+
+    /** Wraps a non-empty `<li>` list $items, with $before next to it, into a `<nav>`, as either bar of the `topnav` layout. */
+    private function navBar(string $class, string $label, string $before, string $items): string
+    {
+        return '<nav class="' . $class . '" aria-label="' . $label . '">' . $before . '<ul>' . $items . '</ul></nav>';
+    }
+
+    /**
+     * The `topnav` layout's "Up" button, left of the current page's siblings
+     * in whichever bar carries them — just an arrow, rather than the "Up"
+     * link `wiki` keeps above the page's title, since here it sits right next
+     * to the page links it means "up" relative to. Empty on the root page,
+     * which has no parent to go up to.
+     *
+     * @param list<string> $path Slugs from the site root down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
+     */
+    private function upButton(array $path, string $prefix): string
+    {
+        if ($path === []) {
             return '';
         }
 
-        return '<nav class="topnav" aria-label="' . self::TOPNAV_LABEL . '">'
-            . ($items === '' ? '' : '<ul>' . $items . '</ul>')
-            . $back
-            . '</nav>';
+        $parentPath = array_slice($path, 0, -1);
+
+        return '<a class="topnav-up" href="' . $this->e($this->url($parentPath, $prefix)) . '" aria-label="' . self::UP_LABEL . '">↑</a>';
+    }
+
+    /**
+     * The `<li>`s linking $children, each as a page `$prefix` levels below
+     * the site root reaches it: $basePath plus the child's own slug. The
+     * child whose slug is $currentSlug is marked `aria-current="page"`;
+     * null if none of them is the page being written.
+     *
+     * @param list<PageNode> $children
+     * @param list<string> $basePath Slugs from the site root down to $children's shared parent
+     * @param string $prefix `../` per level between the linking page and the site root
+     */
+    private function navList(array $children, array $basePath, string $prefix, ?string $currentSlug): string
+    {
+        $items = '';
+        foreach ($children as $child) {
+            $marker = $child->slug === $currentSlug ? ' aria-current="page"' : '';
+            $href = $this->url([...$basePath, $child->slug], $prefix);
+            $items .= '<li><a href="' . $this->e($href) . '"' . $marker . '>' . $this->e($child->title) . '</a></li>';
+        }
+
+        return $items;
     }
 
     /**
@@ -550,66 +635,31 @@ HTML;
     }
 
     /**
-     * The node $path leads to, or null if it leads nowhere — which can't
-     * happen for a page the recursion is writing, since the tree was scanned
-     * off the same directories.
-     *
-     * @param list<string> $path Slugs from the site root down
-     */
-    private function nodeAt(array $path): ?PageNode
-    {
-        $node = $this->tree;
-        foreach ($path as $slug) {
-            $found = null;
-            foreach ($node->children as $child) {
-                if ($child->slug === $slug) {
-                    $found = $child;
-                    break;
-                }
-            }
-            if ($found === null) {
-                return null;
-            }
-            $node = $found;
-        }
-
-        return $node;
-    }
-
-    /**
-     * The `wiki` layout's breadcrumb, replacing the plain back link other
-     * themes use: "Home" (linked, unless this page is already it) followed by
-     * every ancestor strictly between the root and this page — not this page
-     * itself, which the title right below it already names.
+     * The `wiki` layout's "Up" link above a page's title: a link to the
+     * immediate parent page, with an arrow — see upButton() for `topnav`'s
+     * own, folded into its navbar instead. Empty on the root page, which has
+     * no parent to go up to.
      *
      * @param list<string> $path Slugs from the site root down to the page being written
      * @param string $prefix `../` per level between that page and the site root
      */
-    private function eyebrow(array $path, string $prefix): string
+    private function upLink(array $path, string $prefix): string
     {
         if ($path === []) {
-            return '<p class="page-eyebrow">' . self::HOME . '</p>';
+            return '';
         }
 
-        $crumbs = ['<a href="' . $this->e($this->url([], $prefix)) . '">' . self::HOME . '</a>'];
+        $parentPath = array_slice($path, 0, -1);
 
-        $ancestorPath = [];
-        foreach (array_slice($path, 0, -1) as $slug) {
-            $ancestorPath[] = $slug;
-            $node = $this->nodeAt($ancestorPath);
-            if ($node === null) {
-                continue;
-            }
-            $crumbs[] = '<a href="' . $this->e($this->url($ancestorPath, $prefix)) . '">' . $this->e($node->title) . '</a>';
-        }
-
-        return '<p class="page-eyebrow">' . implode(' / ', $crumbs) . '</p>';
+        return '<a class="page-up" href="' . $this->e($this->url($parentPath, $prefix)) . '">'
+            . '<span aria-hidden="true">↑</span> ' . self::UP_LABEL . '</a>';
     }
 
     /**
-     * The `wiki` layout's prev/next links, in the reading order $flatSequence
-     * was built in. Empty for a page with neither neighbour, which can only
-     * be the root of a site with no other pages at all.
+     * The prev/next links below a page's content, shared by both layouts, in
+     * the reading order $flatSequence was built in. Empty for a page with
+     * neither neighbour, which can only be the root of a site with no other
+     * pages at all.
      *
      * @param list<string> $path Slugs from the site root down to the page being written
      * @param string $prefix `../` per level between that page and the site root
@@ -666,36 +716,25 @@ HTML;
             ? '<script src="' . $prefix . 'layout.js"></script>'
             : '';
         $footerText = sprintf(self::FOOTER, gmdate('Y-m-d H:i:s'));
-        // Every page except the root sits one level under its parent index.
-        $back = $depth > 0 ? '<a class="back" href="../">' . self::BACK . '</a>' : '';
-        // Each layout carries its navigation differently, and the page's place
-        // in the site with it: `topnav` puts the back link in the bar below
-        // the site header and the generated-at stamp in a footer at the
-        // page's end; `wiki` puts the whole tree in the sidebar, a breadcrumb
-        // above the title in its place, the stamp right below that, and
-        // prev/next links where the footer would otherwise go. Listed rather
-        // than branched on, so a third theme can't quietly inherit whichever
-        // layout happens to be the `else`.
-        [$nav, $navToggle, $pageHeaderInner, $afterHeader, $footerHtml] = match ($this->theme) {
-            'wiki' => [
-                $this->sidebar($path, $prefix),
-                $this->navToggle(),
-                $this->eyebrow($path, $prefix) . '<h1 class="page-title">' . $title . '</h1>',
-                '<p class="page-meta">' . $footerText . '</p>'
-                    . '<hr class="page-divider">'
-                    . $main
-                    . '<hr class="page-divider">'
-                    . $this->prevNext($path, $prefix),
-                '',
-            ],
-            'topnav' => [
-                $this->topNav($path, $back),
-                '',
-                '<h1 class="page-title">' . $title . '</h1>',
-                $main,
-                '<footer>' . $footerText . '</footer>',
-            ],
+        // The generated-at stamp, the dividers around the content, and the
+        // prev/next links below it are the same under both layouts; only how
+        // the rest of the site is reached differs — the whole tree in
+        // `wiki`'s sidebar, the current page's own children in `topnav`'s
+        // bar — and with it the way back up a level: `wiki` keeps its "Up"
+        // link above the title, `topnav` folds its own into the bar, beside
+        // the page links it sits above. Listed rather than branched on, so a
+        // third theme can't quietly inherit whichever layout happens to be
+        // the `else`.
+        [$nav, $navToggle, $upAboveTitle] = match ($this->theme) {
+            'wiki' => [$this->sidebar($path, $prefix), $this->navToggle(), $this->upLink($path, $prefix)],
+            'topnav' => [$this->topNav($path, $prefix), '', ''],
         };
+        $pageHeaderInner = $upAboveTitle . '<h1 class="page-title">' . $title . '</h1>';
+        $afterHeader = '<p class="page-meta">' . $footerText . '</p>'
+            . '<hr class="page-divider">'
+            . $main
+            . '<hr class="page-divider">'
+            . $this->prevNext($path, $prefix);
 
         $html = <<<HTML
 <!doctype html>
@@ -729,7 +768,6 @@ HTML;
             </div>
             {$afterHeader}
         </main>
-        {$footerHtml}
     </body>
 </html>
 HTML;

@@ -1,56 +1,164 @@
 /*
  * `topnav` layout, selected via `theme: 'topnav'` in $renderOptions and copied
- * to the build output as `layout.css`: the current page's sub-pages as a bar
- * of links below the site header, one level deep only — no nesting, no
- * ancestors — with the back link to the parent page at its end. Moving around
- * the site is a step at a time: down through the bar, up through the back
- * link. See `wiki.css` for the alternate layout.
+ * to the build output as `layout.css`: a classic navbar — the site title on
+ * the left, the current page's siblings centred in the same row (itself
+ * marked current), the theme toggle on the right — plus, when the current
+ * page has any children, a second bar below carrying those. One level either
+ * side only, no further nesting. The way back up a level is the "Up" button
+ * (`.topnav-up`), left of whichever bar carries the current page's own
+ * siblings — unlike `wiki.css`'s own, which stays above the page's title,
+ * since here it sits right next to the page links it means "up" relative to.
+ * See `wiki.css` for the alternate layout, a sidebar tree instead of these
+ * two bars.
  *
- * The bar sticks below the site header, which is why `--header-height` is a
- * fixed token rather than whatever the header's content happens to measure.
+ * `.topnav` (the primary, sibling bar) is a sibling of `.site-header` in the
+ * markup, not a child of it, so it can't share its flex row directly;
+ * `position: fixed` over the same box is what puts the two on one visual line
+ * without touching the HTML. `pointer-events` hands the row back to
+ * `.site-header` everywhere except where `.topnav`'s own links sit, so the
+ * brand and the toggle stay clickable underneath it. `.subnav` (the
+ * secondary, children bar) carries no such trick — it just sits in the normal
+ * flow below the header, the way `.topnav` alone used to.
+ *
+ * A darker, blue-accented palette, scoped to this layout alone by living here
+ * rather than in the shared style.css tokens `wiki` also reads.
  */
+:root {
+    --bg: light-dark(#fafbfe, #10121c);
+    --bg-sunken: light-dark(#f1f3f9, #161926);
+    --bg-raised: light-dark(#fff, #1b1f2e);
+    --text: light-dark(#1b1f2e, #e8eaf2);
+    --text-muted: light-dark(#5b6172, #8b90a5);
+    --border: light-dark(#e2e5ee, #232738);
+    --border-strong: light-dark(#c7cce0, #333952);
+    --accent: light-dark(#3b50c9, #8da3ef);
+
+    /*
+     * Taller than the shared default: both `.site-header` (style.css) and
+     * `.topnav` below key off this same token, so overriding it here keeps
+     * the two in lockstep without having to repeat the height in both places.
+     */
+    --header-height: 4.5rem;
+}
+
+.site-header {
+    text-transform: none;
+    letter-spacing: normal;
+}
+.site-header > a {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--accent);
+}
+.site-header > a:hover {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
 .topnav {
-    position: sticky;
-    top: var(--header-height);
-    z-index: 9;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 10;
+    height: var(--header-height);
     display: flex;
     align-items: center;
-    gap: 1rem;
-    min-height: 2.9rem;
-    padding: .4rem 1.5rem;
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: saturate(160%) blur(8px);
+    justify-content: center;
+    gap: .75rem;
+    pointer-events: none;
 }
 
 .topnav ul {
+    pointer-events: auto;
     display: flex;
     flex-wrap: wrap;
-    gap: .25rem;
-    /* Leaves the back link its place when the bar is full of sub-pages. */
-    min-width: 0;
+    justify-content: center;
+    gap: 1.5rem;
 }
 
 .topnav li { display: flex; }
 .topnav a {
-    padding: .25rem .7rem;
-    border-radius: 999px;
+    padding: .2rem 0;
     font-size: .9rem;
 }
-.topnav a:hover { background: var(--bg-sunken); }
-
-/* Pushed to the far end of the bar; `.back`'s own colors, not the bar's. */
-.topnav .back {
-    margin-left: auto;
-    padding: .25rem 0;
-    color: var(--text-muted);
+.topnav a:hover { color: var(--link); }
+.topnav a[aria-current] {
+    color: var(--text);
+    font-weight: 600;
 }
-.topnav .back:hover { color: var(--link); }
+
+/*
+ * The secondary bar: in the normal flow below the header (and below the
+ * primary bar fixed over it), its own band rather than an overlay, since
+ * there's no brand or toggle row to share.
+ */
+.subnav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+    padding: .6rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-sunken);
+}
+.subnav ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+.subnav li { display: flex; }
+.subnav a {
+    padding: .2rem 0;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: .85rem;
+}
+.subnav a:hover { color: var(--link); }
+.subnav a[aria-current] {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/*
+ * The "Up" button, left of whichever bar carries the current page's own
+ * siblings — just an arrow, since it sits right next to the page links it
+ * means "up" relative to. `pointer-events` is its own since `.topnav` (the
+ * primary bar) hands the row back to `.site-header` everywhere but its own
+ * children's content.
+ */
+.topnav-up {
+    display: flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 1.8rem;
+    height: 1.8rem;
+    border-radius: 50%;
+    color: var(--text-muted);
+    font-size: 1rem;
+    text-decoration: none;
+    pointer-events: auto;
+}
+.topnav-up:hover {
+    color: var(--link);
+    background: var(--bg-raised);
+}
+
+/* The "Up" link and generated-at stamp read as part of the same centred column as the title. */
+.page-header,
+.page-meta {
+    text-align: center;
+}
 
 @media (max-width: 40rem) {
-    .topnav {
-        align-items: flex-start;
-        gap: .4rem;
-        padding: .5rem 1.25rem;
+    .topnav ul {
+        gap: 1rem;
+    }
+    .subnav ul {
+        gap: .85rem;
     }
 }

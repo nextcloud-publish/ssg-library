@@ -105,8 +105,12 @@ accepted as well):
 `theme` picks how a page navigates to the rest of the site. Its stylesheet
 (`src/themes/*.css`) is copied to the output as `layout.css`, and its script, if
 it has one (`src/themes/*.js`), as `layout.js`; prose and the light/dark toggle
-are the same under both — colors and typography are `wiki`'s own, darker and
-teal-accented, since its stylesheet overrides the shared tokens `topnav` reads.
+are the same under both. So is the content around a page's body: a way back up
+to the immediate parent, a generated-at stamp, dividers either side of the
+content, and links to the previous and next page in the tree's reading order
+below it. Colors, typography, and how the rest of the site is reached are each
+layout's own — and with it where that way up a level lives, as part of each
+layout's own navigation rather than the page body shared between them.
 
 - **`wiki`** puts the site's whole page tree in a sidebar on the left, the same
   on every page, with the page being shown marked `aria-current="page"`. Below
@@ -114,13 +118,23 @@ teal-accented, since its stylesheet overrides the shared tokens `topnav` reads.
   slides in from the left, opened from a button in the site header and closed
   by that button, by the dimmed page behind it, or by <kbd>Esc</kbd>. With
   JavaScript unavailable the drawer can't be opened, so the tree falls back to
-  a band above the page and the button is never shown. In place of a back
-  link, each page carries a breadcrumb above its title — "Home", plus every
-  ancestor in between — and, below the content, links to the previous and
-  next page in the tree's reading order.
-- **`topnav`** puts the current page's own sub-pages in a bar below the site
-  header — one level deep only, no ancestors and no nesting — with the back
-  link to the parent page at its end.
+  a band above the page and the button is never shown. The way up a level is
+  an "Up" link above the page's title.
+- **`topnav`** is a classic navbar: the site title on the left, the current
+  page's siblings centred in the same bar (itself marked
+  `aria-current="page"`), the theme toggle on the right, and below it a second
+  bar for the current page's own children. The way up a level is an "Up"
+  button, an arrow alone, left of whichever bar carries the current page's own
+  siblings. At the deepest level, where there are no children to put in the
+  second bar, the pair shifts up one level instead: the current page joins its
+  siblings in the second bar, and the first becomes its parent's own siblings,
+  the parent marked current there. The landing page has no siblings at all, so
+  it gets just the one bar, its own children in the primary bar's place,
+  nothing in it highlighted, and no "Up" button, since it has nowhere to go up
+  to. A page one level below it has no children either, but shifting up a
+  level would only reach the landing page, which has no siblings of its own to
+  promote into a primary bar — so that page's own siblings stay in the primary
+  bar instead of moving down, the same as any page with children of its own.
 
 Under neither layout does the page body repeat its sub-pages as a list: the
 sidebar and the bar already link them.
