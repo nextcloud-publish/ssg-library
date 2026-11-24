@@ -18,7 +18,9 @@
  * `.site-header` everywhere except where `.topnav`'s own content sits, so the
  * brand and the toggle stay clickable underneath it. `.subnav` (the
  * secondary, children bar) carries no such trick — it just sits in the normal
- * flow below the header, the way `.topnav` alone used to.
+ * flow below the header, the way `.topnav` alone used to, and the way
+ * `.topnav` itself falls back to once the row is too narrow to share (see the
+ * media query at the bottom).
  *
  * A darker, blue-accented palette, scoped to this layout alone by living here
  * rather than in the shared style.css tokens `wiki` also reads.
@@ -136,4 +138,23 @@
 @media (max-width: 40rem) {
     .topnav { --nav-gap: 1rem; }
     .subnav { --nav-gap: .85rem; }
+
+    /*
+     * Too narrow for one row: the links wrap, and a bar pinned to the header's
+     * height would spill its second row over the page below — taking its own
+     * pointer events with it, so the prose underneath would stop answering
+     * clicks. So here it gives up the overlay and takes a band of its own —
+     * the same one `.subnav` always has, the two reading as the stacked
+     * navbar they are — and the header goes back to the shared height it
+     * needs for just the brand and the toggle.
+     */
+    :root { --header-height: 3rem; }
+    .topnav {
+        position: static;
+        height: auto;
+        padding: .45rem 1.5rem;
+        pointer-events: auto;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-sunken);
+    }
 }

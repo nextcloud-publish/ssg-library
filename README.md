@@ -135,6 +135,9 @@ layout's own navigation rather than the page body shared between them.
   level would only reach the landing page, which has no siblings of its own to
   promote into a primary bar — so that page's own siblings stay in the primary
   bar instead of moving down, the same as any page with children of its own.
+  Below 40rem the first bar stops sharing the title's row, where its links
+  would have had to wrap over the page below, and takes a band of its own
+  under it instead.
 
 Under neither layout does the page body repeat its sub-pages as a list: the
 sidebar and the bar already link them.
