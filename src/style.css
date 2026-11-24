@@ -92,8 +92,6 @@ a:hover { text-decoration-thickness: 2px; }
     background: color-mix(in srgb, var(--bg) 88%, transparent);
     backdrop-filter: saturate(160%) blur(8px);
     font-size: .82rem;
-    letter-spacing: .04em;
-    text-transform: uppercase;
 }
 .site-header a {
     color: var(--text-muted);
