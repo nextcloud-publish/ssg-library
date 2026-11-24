@@ -18,10 +18,44 @@
  */
 :root {
     --sidebar-width: 17rem;
+
+    /*
+     * A darker, teal-accented palette, scoped to this layout alone by living
+     * here rather than in the shared style.css tokens `topnav` also reads.
+     */
+    --bg: light-dark(#fbfdfc, #0b0f11);
+    --bg-sunken: light-dark(#f1f5f4, #101517);
+    --bg-raised: light-dark(#fff, #161c1f);
+    --text: light-dark(#1b2420, #e7ebe9);
+    --text-muted: light-dark(#5b6662, #8a9490);
+    --border: light-dark(#dfe6e3, #1e2528);
+    --border-strong: light-dark(#c3cdc9, #2d3538);
+    --accent: light-dark(#0f7a6c, #2dd8c5);
 }
 
 body {
     padding-left: var(--sidebar-width);
+}
+
+/*
+ * The tree's root entry below already carries the site title (styled large,
+ * just under here) — showing it again in the bar above the content would
+ * just repeat it.
+ */
+.site-header > a {
+    display: none;
+}
+
+/*
+ * No visible bar: the header still reserves its height, sticky at the top,
+ * so the theme toggle (and, on narrow screens, the drawer toggle) sit clear
+ * of the content scrolling beneath them — it just shows no background or
+ * border of its own to read as a bar.
+ */
+.site-header {
+    background: none;
+    backdrop-filter: none;
+    border-bottom: 0;
 }
 
 .sidebar {
@@ -38,15 +72,22 @@ body {
     line-height: 1.5;
 }
 
-/* Section label above the tree, not a heading the page's prose should echo. */
+/*
+ * Section label above the tree. The root page's own entry just below it
+ * (styled large below) reads as the sidebar's heading already, so this is
+ * kept for the nav's aria-labelledby but visually hidden rather than shown
+ * twice.
+ */
 .sidebar h2 {
-    font-family: var(--sans);
-    font-size: .78rem;
-    font-weight: 700;
-    letter-spacing: .09em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin: 0 0 .6rem;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 .page-tree li { margin: .08rem 0; }
@@ -63,16 +104,39 @@ body {
  * which is why this sits here and not in the shared stylesheet.
  */
 .page-tree a[aria-current] {
-    color: var(--link);
     font-weight: 600;
-    background: var(--bg-raised);
-    box-shadow: inset 2px 0 0 var(--accent);
+    box-shadow: inset 2px 0 0 var(--border-strong);
 }
 
-/* The site root heads the tree, so it carries the serif of a page title. */
+/*
+ * The site root heads the tree and doubles as the sidebar's title, so it
+ * carries the serif and accent color of a page title.
+ */
 .page-tree > ul > li > a {
     font-family: var(--serif);
-    font-size: 1.05rem;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--accent);
+}
+
+/*
+ * The root's direct children (top-level folders/pages) read as section
+ * headings rather than nested pages: no indent guide, just weight and
+ * spacing to set each group apart.
+ */
+.page-tree > ul > li > ul {
+    margin-top: .9rem;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+}
+.page-tree > ul > li > ul > li {
+    margin-top: .6rem;
+}
+.page-tree > ul > li > ul > li > a {
+    font-weight: 700;
+    font-size: .92rem;
+    color: var(--text);
 }
 
 /* Sub-pages indent against a guide line down their parent's left edge. */
@@ -80,6 +144,85 @@ body {
     margin-left: .5rem;
     padding-left: .6rem;
     border-left: 1px solid var(--border-strong);
+}
+
+/* ---------- Page chrome ---------- */
+
+/*
+ * The breadcrumb and title stack instead of sharing a baseline-aligned row
+ * with a back link, and carry no border of their own — the dividers around
+ * the content below do that job instead.
+ */
+.page-header {
+    display: block;
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+.page-header::after {
+    display: none;
+}
+
+.page-eyebrow {
+    margin: 0 0 .6rem;
+    font-family: var(--sans);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--accent);
+}
+.page-eyebrow a {
+    color: inherit;
+    text-decoration: none;
+}
+.page-eyebrow a:hover {
+    text-decoration: underline;
+}
+
+.page-meta {
+    margin: .6rem 0 0;
+    color: var(--text-muted);
+    font-size: .85rem;
+}
+
+.page-divider {
+    height: 1px;
+    margin: 1.75rem 0;
+    border: 0;
+    background: var(--border);
+}
+
+/* Prev on the left, next on the right; an empty span holds the other end's place when there is none. */
+.page-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+.page-nav-link {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    text-decoration: none;
+}
+.page-nav-next {
+    text-align: right;
+}
+.page-nav-label {
+    font-family: var(--sans);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.page-nav-title {
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    color: var(--text);
+}
+.page-nav-link:hover .page-nav-title {
+    color: var(--link);
 }
 
 /* ---------- Drawer ---------- */

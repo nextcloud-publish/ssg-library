@@ -68,6 +68,13 @@ class SiteBuilder
     private const BACK = '← Back';
     private const NO_CONTENT = 'This page has no content yet.';
 
+    /** Label the `wiki` layout's breadcrumb uses for the site root. */
+    private const HOME = 'Home';
+
+    /** Labels either side of the `wiki` layout's prev/next page links. */
+    private const PREV_LABEL = 'Prev';
+    private const NEXT_LABEL = 'Next';
+
     /** sprintf() format string taking the build timestamp. */
     private const FOOTER = 'Generated %s UTC';
 
@@ -101,6 +108,17 @@ class SiteBuilder
     /** The whole site's page tree, scanned in build() before the first page is written. */
     private PageNode $tree;
 
+    /**
+     * The tree flattened into the `wiki` layout's reading order — pre-order,
+     * root first then each child in turn, the same order renderDirectory()
+     * writes pages in — so a page's prev/next neighbour is just its index's
+     * neighbour. Built once in build() alongside $tree, for the same reason:
+     * a page's neighbours aren't known from its own folder alone.
+     *
+     * @var list<array{path: list<string>, title: string}>
+     */
+    private array $flatSequence = [];
+
     public function __construct(
         private MarkdownConverter $markdown = new MarkdownConverter(),
         private InputSanitizer $sanitizer = new InputSanitizer(),
@@ -130,6 +148,8 @@ class SiteBuilder
         // Navigation shows pages other than the one being written, so the
         // whole tree has to be known before the first page is rendered.
         $this->tree = $this->scanTree($pagesDir, '', $siteTitle);
+        $this->flatSequence = [];
+        $this->flattenTree($this->tree, [], $this->flatSequence);
 
         $this->ensureDir($outDir);
         copy(__DIR__ . '/style.css', $outDir . '/style.css');
@@ -514,6 +534,120 @@ HTML;
     }
 
     /**
+     * Flattens $node into $out in reading order: the node itself, then each of
+     * its children in turn, recursively — the same order renderDirectory()
+     * writes pages in, since both walk $node->children left to right.
+     *
+     * @param list<string> $path Slugs from the site root down to $node; empty for the root
+     * @param list<array{path: list<string>, title: string}> $out
+     */
+    private function flattenTree(PageNode $node, array $path, array &$out): void
+    {
+        $out[] = ['path' => $path, 'title' => $node->title];
+        foreach ($node->children as $child) {
+            $this->flattenTree($child, [...$path, $child->slug], $out);
+        }
+    }
+
+    /**
+     * The node $path leads to, or null if it leads nowhere — which can't
+     * happen for a page the recursion is writing, since the tree was scanned
+     * off the same directories.
+     *
+     * @param list<string> $path Slugs from the site root down
+     */
+    private function nodeAt(array $path): ?PageNode
+    {
+        $node = $this->tree;
+        foreach ($path as $slug) {
+            $found = null;
+            foreach ($node->children as $child) {
+                if ($child->slug === $slug) {
+                    $found = $child;
+                    break;
+                }
+            }
+            if ($found === null) {
+                return null;
+            }
+            $node = $found;
+        }
+
+        return $node;
+    }
+
+    /**
+     * The `wiki` layout's breadcrumb, replacing the plain back link other
+     * themes use: "Home" (linked, unless this page is already it) followed by
+     * every ancestor strictly between the root and this page — not this page
+     * itself, which the title right below it already names.
+     *
+     * @param list<string> $path Slugs from the site root down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
+     */
+    private function eyebrow(array $path, string $prefix): string
+    {
+        if ($path === []) {
+            return '<p class="page-eyebrow">' . self::HOME . '</p>';
+        }
+
+        $crumbs = ['<a href="' . $this->e($this->url([], $prefix)) . '">' . self::HOME . '</a>'];
+
+        $ancestorPath = [];
+        foreach (array_slice($path, 0, -1) as $slug) {
+            $ancestorPath[] = $slug;
+            $node = $this->nodeAt($ancestorPath);
+            if ($node === null) {
+                continue;
+            }
+            $crumbs[] = '<a href="' . $this->e($this->url($ancestorPath, $prefix)) . '">' . $this->e($node->title) . '</a>';
+        }
+
+        return '<p class="page-eyebrow">' . implode(' / ', $crumbs) . '</p>';
+    }
+
+    /**
+     * The `wiki` layout's prev/next links, in the reading order $flatSequence
+     * was built in. Empty for a page with neither neighbour, which can only
+     * be the root of a site with no other pages at all.
+     *
+     * @param list<string> $path Slugs from the site root down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
+     */
+    private function prevNext(array $path, string $prefix): string
+    {
+        $index = null;
+        foreach ($this->flatSequence as $i => $entry) {
+            if ($entry['path'] === $path) {
+                $index = $i;
+                break;
+            }
+        }
+        if ($index === null) {
+            return '';
+        }
+
+        $prev = $index > 0 ? $this->flatSequence[$index - 1] : null;
+        $next = $this->flatSequence[$index + 1] ?? null;
+        if ($prev === null && $next === null) {
+            return '';
+        }
+
+        $prevHtml = $prev !== null
+            ? '<a class="page-nav-link page-nav-prev" href="' . $this->e($this->url($prev['path'], $prefix)) . '">'
+                . '<span class="page-nav-label">' . self::PREV_LABEL . '</span>'
+                . '<span class="page-nav-title">← ' . $this->e($prev['title']) . '</span></a>'
+            : '<span></span>';
+        $nextHtml = $next !== null
+            ? '<a class="page-nav-link page-nav-next" href="' . $this->e($this->url($next['path'], $prefix)) . '">'
+                . '<span class="page-nav-label">' . self::NEXT_LABEL . '</span>'
+                . '<span class="page-nav-title">' . $this->e($next['title']) . ' →</span></a>'
+            : '<span></span>';
+
+        return '<nav class="page-nav" aria-label="Page navigation">' . $prevHtml . $nextHtml . '</nav>';
+    }
+
+    /**
      * @param list<string> $path Slugs from the site root down to this page; empty for the root
      */
     private function writePage(string $outDir, string $title, array $path, string $main): void
@@ -531,18 +665,36 @@ HTML;
         $layoutScript = in_array($this->theme, self::THEME_SCRIPTS, true)
             ? '<script src="' . $prefix . 'layout.js"></script>'
             : '';
-        $footer = sprintf(self::FOOTER, gmdate('Y-m-d H:i:s'));
+        $footerText = sprintf(self::FOOTER, gmdate('Y-m-d H:i:s'));
         // Every page except the root sits one level under its parent index.
         $back = $depth > 0 ? '<a class="back" href="../">' . self::BACK . '</a>' : '';
-        // Each layout carries its navigation differently, and the back link
-        // with it: `topnav` puts both in the bar below the site header, `wiki`
-        // keeps the link next to the page title, the tree in the sidebar and a
-        // toggle for it in the header. Listed rather than branched on, so a
-        // third theme can't quietly inherit whichever layout happens to be the
-        // `else`.
-        [$nav, $navToggle, $titleBack] = match ($this->theme) {
-            'wiki' => [$this->sidebar($path, $prefix), $this->navToggle(), $back],
-            'topnav' => [$this->topNav($path, $back), '', ''],
+        // Each layout carries its navigation differently, and the page's place
+        // in the site with it: `topnav` puts the back link in the bar below
+        // the site header and the generated-at stamp in a footer at the
+        // page's end; `wiki` puts the whole tree in the sidebar, a breadcrumb
+        // above the title in its place, the stamp right below that, and
+        // prev/next links where the footer would otherwise go. Listed rather
+        // than branched on, so a third theme can't quietly inherit whichever
+        // layout happens to be the `else`.
+        [$nav, $navToggle, $pageHeaderInner, $afterHeader, $footerHtml] = match ($this->theme) {
+            'wiki' => [
+                $this->sidebar($path, $prefix),
+                $this->navToggle(),
+                $this->eyebrow($path, $prefix) . '<h1 class="page-title">' . $title . '</h1>',
+                '<p class="page-meta">' . $footerText . '</p>'
+                    . '<hr class="page-divider">'
+                    . $main
+                    . '<hr class="page-divider">'
+                    . $this->prevNext($path, $prefix),
+                '',
+            ],
+            'topnav' => [
+                $this->topNav($path, $back),
+                '',
+                '<h1 class="page-title">' . $title . '</h1>',
+                $main,
+                '<footer>' . $footerText . '</footer>',
+            ],
         };
 
         $html = <<<HTML
@@ -573,14 +725,11 @@ HTML;
         {$nav}
         <main>
             <div class="page-header">
-                <h1 class="page-title">{$title}</h1>
-                {$titleBack}
+                {$pageHeaderInner}
             </div>
-            {$main}
+            {$afterHeader}
         </main>
-        <footer>
-            {$footer}
-        </footer>
+        {$footerHtml}
     </body>
 </html>
 HTML;

@@ -104,8 +104,9 @@ accepted as well):
 
 `theme` picks how a page navigates to the rest of the site. Its stylesheet
 (`src/themes/*.css`) is copied to the output as `layout.css`, and its script, if
-it has one (`src/themes/*.js`), as `layout.js`; everything else — colors,
-typography, prose and the light/dark toggle — is the same under both.
+it has one (`src/themes/*.js`), as `layout.js`; prose and the light/dark toggle
+are the same under both — colors and typography are `wiki`'s own, darker and
+teal-accented, since its stylesheet overrides the shared tokens `topnav` reads.
 
 - **`wiki`** puts the site's whole page tree in a sidebar on the left, the same
   on every page, with the page being shown marked `aria-current="page"`. Below
@@ -113,7 +114,10 @@ typography, prose and the light/dark toggle — is the same under both.
   slides in from the left, opened from a button in the site header and closed
   by that button, by the dimmed page behind it, or by <kbd>Esc</kbd>. With
   JavaScript unavailable the drawer can't be opened, so the tree falls back to
-  a band above the page and the button is never shown.
+  a band above the page and the button is never shown. In place of a back
+  link, each page carries a breadcrumb above its title — "Home", plus every
+  ancestor in between — and, below the content, links to the previous and
+  next page in the tree's reading order.
 - **`topnav`** puts the current page's own sub-pages in a bar below the site
   header — one level deep only, no ancestors and no nesting — with the back
   link to the parent page at its end.
