@@ -83,11 +83,9 @@ body {
     width: 1px;
     height: 1px;
     margin: -1px;
-    padding: 0;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
     white-space: nowrap;
-    border: 0;
 }
 
 .page-tree li { margin: .08rem 0; }
@@ -99,12 +97,11 @@ body {
 }
 .page-tree a:hover { background: var(--bg-raised); }
 /*
- * The page being shown, marked by `aria-current="page"` on its own link. Only
- * the tree can carry it: a top bar links sub-pages, never the current page —
- * which is why this sits here and not in the shared stylesheet.
+ * The page being shown, marked by `aria-current="page"` on its own link.
+ * Shared style.css weights it, as it does in `topnav`'s bars; the rule down
+ * its left edge is the tree's own, there being an edge here to rule.
  */
 .page-tree a[aria-current] {
-    font-weight: 600;
     box-shadow: inset 2px 0 0 var(--border-strong);
 }
 
@@ -149,23 +146,14 @@ body {
 /* ---------- Drawer ---------- */
 
 /*
- * The toggle. It lives in the site header rather than beside the tree it
+ * The toggle, styled as a header icon button alongside the theme toggle in
+ * style.css. It lives in the site header rather than beside the tree it
  * opens, which is the only place that stays clear of the drawer sliding over
- * the page. Off by default and switched on in the media query below: on a
- * screen wide enough for the sidebar the tree is simply there, with nothing
+ * the page. Off by default and switched back on in the media query below: on
+ * a screen wide enough for the sidebar the tree is simply there, with nothing
  * for a button to do.
  */
-.nav-toggle {
-    display: none;
-    padding: .25rem;
-    border: 0;
-    border-radius: var(--radius);
-    background: none;
-    color: var(--text-muted);
-    cursor: pointer;
-}
-.nav-toggle:hover { color: var(--text); background: var(--bg-raised); }
-.nav-toggle svg { display: block; }
+.nav-toggle { display: none; }
 /*
  * Bars into a cross: the outer two slide onto the middle one's line and turn
  * across each other there, the middle one fades out beneath them. `fill-box`
@@ -195,9 +183,12 @@ body {
     /*
      * Without the drawer script the tree can't be opened, so it must not be
      * closed: a band above the page, capped in height so it can't push the
-     * page itself off the first screen.
+     * page itself off the first screen. Scoped to the script being absent
+     * rather than written as a default the drawer below then has to undo —
+     * which is what keeps the drawer's own rules down to what actually makes
+     * it a drawer, the rest inherited from the sidebar it already is.
      */
-    .sidebar {
+    :root:not([data-nav]) .sidebar {
         position: static;
         width: auto;
         max-height: 45vh;
@@ -206,19 +197,13 @@ body {
         border-bottom: 1px solid var(--border);
     }
 
-    /* With it, the same tree is a drawer, and the header gains its handle. */
-    :root[data-nav] .nav-toggle { display: flex; }
-    :root[data-nav] .nav-toggle[hidden] { display: none; }
+    /* With the script, the same tree is a drawer, and the header gains its handle. */
+    :root[data-nav] .nav-toggle:not([hidden]) { display: flex; }
 
     :root[data-nav] .sidebar {
-        position: fixed;
         /* Below the site header, which keeps the toggle clear of the drawer. */
         inset: var(--header-height) auto 0 0;
         width: min(var(--sidebar-width), 84vw);
-        max-height: none;
-        padding: 1.1rem 1rem 2rem 1.5rem;
-        border-right: 1px solid var(--border);
-        border-bottom: 0;
         box-shadow: 0 0 2rem rgb(0 0 0 / .18);
         /*
          * `visibility` rather than opacity or offset alone: a drawer that is

@@ -15,7 +15,7 @@
  * markup, not a child of it, so it can't share its flex row directly;
  * `position: fixed` over the same box is what puts the two on one visual line
  * without touching the HTML. `pointer-events` hands the row back to
- * `.site-header` everywhere except where `.topnav`'s own links sit, so the
+ * `.site-header` everywhere except where `.topnav`'s own content sits, so the
  * brand and the toggle stay clickable underneath it. `.subnav` (the
  * secondary, children bar) carries no such trick — it just sits in the normal
  * flow below the header, the way `.topnav` alone used to.
@@ -56,36 +56,41 @@
     text-decoration: underline;
 }
 
-.topnav {
-    position: fixed;
-    inset: 0 0 auto 0;
-    z-index: 10;
-    height: var(--header-height);
+/*
+ * Both bars are the same thing — a centred row of links — so that part is
+ * written once, and each sets only what makes it itself below. The spacing
+ * between links is a variable rather than a declaration because it is the one
+ * thing the narrow-screen rules at the bottom tighten on both of them.
+ */
+.topnav, .subnav {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: .75rem;
-    pointer-events: none;
 }
-
-.topnav ul {
-    pointer-events: auto;
+.topnav ul, .subnav ul {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 1.5rem;
+    gap: var(--nav-gap);
 }
+.topnav li, .subnav li { display: flex; }
+.topnav a, .subnav a { padding: .2rem 0; }
+/* The weight is shared (style.css); the full-strength color is this layout's. */
+.topnav a[aria-current], .subnav a[aria-current] { color: var(--text); }
 
-.topnav li { display: flex; }
-.topnav a {
-    padding: .2rem 0;
-    font-size: .9rem;
+/* The primary bar, fixed over the header's row — see the note up top. */
+.topnav {
+    --nav-gap: 1.5rem;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 10;
+    height: var(--header-height);
+    pointer-events: none;
 }
-.topnav a:hover { color: var(--link); }
-.topnav a[aria-current] {
-    color: var(--text);
-    font-weight: 600;
-}
+/* Everything the bar actually draws takes the pointer back off the header. */
+.topnav > * { pointer-events: auto; }
+.topnav a { font-size: .9rem; }
 
 /*
  * The secondary bar: in the normal flow below the header (and below the
@@ -93,42 +98,17 @@
  * there's no brand or toggle row to share.
  */
 .subnav {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .75rem;
+    --nav-gap: 1.25rem;
     padding: .6rem 1.5rem;
     border-bottom: 1px solid var(--border);
     background: var(--bg-sunken);
 }
-.subnav ul {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 1.25rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-.subnav li { display: flex; }
-.subnav a {
-    padding: .2rem 0;
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: .85rem;
-}
-.subnav a:hover { color: var(--link); }
-.subnav a[aria-current] {
-    color: var(--text);
-    font-weight: 600;
-}
+.subnav a { color: var(--text-muted); font-size: .85rem; }
 
 /*
  * The "Up" button, left of whichever bar carries the current page's own
  * siblings — just an arrow, since it sits right next to the page links it
- * means "up" relative to. `pointer-events` is its own since `.topnav` (the
- * primary bar) hands the row back to `.site-header` everywhere but its own
- * children's content.
+ * means "up" relative to.
  */
 .topnav-up {
     display: flex;
@@ -141,24 +121,19 @@
     color: var(--text-muted);
     font-size: 1rem;
     text-decoration: none;
-    pointer-events: auto;
 }
 .topnav-up:hover {
     color: var(--link);
     background: var(--bg-raised);
 }
 
-/* The "Up" link and generated-at stamp read as part of the same centred column as the title. */
+/* The generated-at stamp reads as part of the same centred column as the title. */
 .page-header,
 .page-meta {
     text-align: center;
 }
 
 @media (max-width: 40rem) {
-    .topnav ul {
-        gap: 1rem;
-    }
-    .subnav ul {
-        gap: .85rem;
-    }
+    .topnav { --nav-gap: 1rem; }
+    .subnav { --nav-gap: .85rem; }
 }

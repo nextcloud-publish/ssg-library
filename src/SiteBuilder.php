@@ -495,29 +495,38 @@ HTML;
         }
 
         $parentPath = array_slice($path, 0, -1);
-        $currentSlug = $path[array_key_last($path)];
         $children = $this->childrenAt($path);
+        // The current page's own siblings, it among them — every case below
+        // shows this list, the only question being which of the two bars.
+        $siblings = $this->navList(
+            $this->childrenAt($parentPath),
+            $parentPath,
+            $prefix,
+            $path[array_key_last($path)],
+        );
 
         if ($children !== []) {
-            $siblings = $this->navList($this->childrenAt($parentPath), $parentPath, $prefix, $currentSlug);
-            $ownChildren = $this->navList($children, $path, $prefix, null);
-
             return $this->navBar('topnav', self::TOPNAV_LABEL, $up, $siblings)
-                . $this->navBar('subnav', self::SUBNAV_LABEL, '', $ownChildren);
+                . $this->navBar('subnav', self::SUBNAV_LABEL, '', $this->navList($children, $path, $prefix, null));
         }
 
-        $ownSiblings = $this->navList($this->childrenAt($parentPath), $parentPath, $prefix, $currentSlug);
-
+        // No children of its own: the pair shifts up a level, the siblings
+        // moving down to the secondary bar — unless the level above is the
+        // root, which has no siblings to promote in their place.
         if ($parentPath === []) {
-            return $this->navBar('topnav', self::TOPNAV_LABEL, $up, $ownSiblings);
+            return $this->navBar('topnav', self::TOPNAV_LABEL, $up, $siblings);
         }
 
-        $parentSlug = $parentPath[array_key_last($parentPath)];
         $grandparentPath = array_slice($parentPath, 0, -1);
-        $parentSiblings = $this->navList($this->childrenAt($grandparentPath), $grandparentPath, $prefix, $parentSlug);
+        $parentSiblings = $this->navList(
+            $this->childrenAt($grandparentPath),
+            $grandparentPath,
+            $prefix,
+            $parentPath[array_key_last($parentPath)],
+        );
 
         return $this->navBar('topnav', self::TOPNAV_LABEL, $up, $parentSiblings)
-            . $this->navBar('subnav', self::SUBNAV_LABEL, '', $ownSiblings);
+            . $this->navBar('subnav', self::SUBNAV_LABEL, '', $siblings);
     }
 
     /** Wraps a non-empty `<li>` list $items, with $before next to it, into a `<nav>`, as either bar of the `topnav` layout. */
@@ -538,13 +547,28 @@ HTML;
      */
     private function upButton(array $path, string $prefix): string
     {
+        $href = $this->parentHref($path, $prefix);
+
+        return $href === null
+            ? ''
+            : '<a class="topnav-up" href="' . $href . '" aria-label="' . self::UP_LABEL . '">↑</a>';
+    }
+
+    /**
+     * The escaped href of $path's parent page, ready for an attribute — or
+     * null on the root page, which has no parent, and so gets no way up under
+     * either layout.
+     *
+     * @param list<string> $path Slugs from the site root down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
+     */
+    private function parentHref(array $path, string $prefix): ?string
+    {
         if ($path === []) {
-            return '';
+            return null;
         }
 
-        $parentPath = array_slice($path, 0, -1);
-
-        return '<a class="topnav-up" href="' . $this->e($this->url($parentPath, $prefix)) . '" aria-label="' . self::UP_LABEL . '">↑</a>';
+        return $this->e($this->url(array_slice($path, 0, -1), $prefix));
     }
 
     /**
@@ -645,14 +669,11 @@ HTML;
      */
     private function upLink(array $path, string $prefix): string
     {
-        if ($path === []) {
-            return '';
-        }
+        $href = $this->parentHref($path, $prefix);
 
-        $parentPath = array_slice($path, 0, -1);
-
-        return '<a class="page-up" href="' . $this->e($this->url($parentPath, $prefix)) . '">'
-            . '<span aria-hidden="true">↑</span> ' . self::UP_LABEL . '</a>';
+        return $href === null
+            ? ''
+            : '<a class="page-up" href="' . $href . '"><span aria-hidden="true">↑</span> ' . self::UP_LABEL . '</a>';
     }
 
     /**

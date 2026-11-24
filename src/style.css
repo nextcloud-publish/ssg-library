@@ -102,20 +102,29 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .site-header a:hover { color: var(--text); }
 
-.theme-toggle {
+/*
+ * The site header's icon buttons: the light/dark toggle, and — under `wiki` —
+ * the drawer handle beside it. Both are a bare SVG on no background, and both
+ * ship `hidden` for the script that gives them something to do, so what they
+ * have in common is written here rather than once per layout. Each adds its
+ * own shape and placement below.
+ */
+.theme-toggle, .nav-toggle {
     display: flex;
-    margin-left: auto;
     padding: .25rem;
     border: 0;
-    border-radius: 50%;
     background: none;
     color: var(--text-muted);
     cursor: pointer;
 }
-.theme-toggle[hidden] { display: none; }
-.theme-toggle:hover { color: var(--text); background: var(--bg-sunken); }
+.theme-toggle[hidden], .nav-toggle[hidden] { display: none; }
+.theme-toggle:hover, .nav-toggle:hover { color: var(--text); background: var(--bg-sunken); }
+.theme-toggle svg, .nav-toggle svg { display: block; }
+
+.theme-toggle { margin-left: auto; border-radius: 50%; }
+.nav-toggle { border-radius: var(--radius); }
+
 /* Half-filled disc: the fill sweeps across as the theme flips. */
-.theme-toggle svg { display: block; }
 .theme-toggle .disc-fill {
     transition: transform .2s ease;
     transform-origin: center;
@@ -407,19 +416,24 @@ main {
 /* ---------- Navigation, shared ---------- */
 
 /*
- * Both layouts render their links as a plain list; where that list sits and
- * how it flows is the layout file's business.
+ * Every navigation either layout emits — `wiki`'s tree, `topnav`'s two bars —
+ * renders its links as a plain list. Where that list sits and how it flows is
+ * the layout file's business; this is just what they all look like.
  */
-.sidebar ul, .topnav ul {
+.sidebar ul, .topnav ul, .subnav ul {
     margin: 0;
     padding: 0;
     list-style: none;
 }
-.sidebar a, .topnav a {
+.sidebar a, .topnav a, .subnav a {
     color: var(--text);
     text-decoration: none;
 }
-.sidebar a:hover, .topnav a:hover { color: var(--link); }
+.sidebar a:hover, .topnav a:hover, .subnav a:hover { color: var(--link); }
+/* The link pointing at the page being shown. Each layout marks it further. */
+.sidebar a[aria-current], .topnav a[aria-current], .subnav a[aria-current] {
+    font-weight: 600;
+}
 
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; }
