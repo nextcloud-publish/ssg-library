@@ -43,13 +43,6 @@ class SiteBuilder
     /** @var list<Theme> Valid `theme` render option values; file names under src/themes/. */
     private const THEMES = ['wiki', 'topnav'];
 
-    /**
-     * @var list<Theme> Themes that also have a `src/themes/<theme>.js`, copied to the
-     *   output as `layout.js` and linked from every page. Listed rather than probed for,
-     *   so a stray file next to a stylesheet can't put itself into a build.
-     */
-    private const THEME_SCRIPTS = ['wiki'];
-
     /** Theme used when the `theme` render option isn't given. */
     private const DEFAULT_THEME = 'wiki';
 
@@ -62,11 +55,22 @@ class SiteBuilder
     /** Accessible name of the `topnav` layout's secondary bar — the current page's own children. */
     private const SUBNAV_LABEL = 'Section pages';
 
+    /**
+     * Name of the `topnav` layout's drawer toggle. Its own bars are named
+     * already (above), and naming the button after either of them would say
+     * less than this does about what it opens: both of them at once.
+     */
+    private const MENU_LABEL = 'Menu';
+
     /** `id` the sidebar's heading is referenced by, for its `aria-labelledby`. */
     private const SIDEBAR_HEADING_ID = 'page-tree-heading';
 
-    /** `id` the sidebar is referenced by, for the drawer toggle's `aria-controls`. */
-    private const SIDEBAR_ID = 'page-tree';
+    /**
+     * `id` of whichever element a layout puts its navigation in — `wiki`'s
+     * sidebar, the box around `topnav`'s bars — for the drawer toggle's
+     * `aria-controls` and for `nav.js`, which finds the drawer by it.
+     */
+    private const NAV_ID = 'site-nav';
 
     private const NO_CONTENT = 'This page has no content yet.';
 
@@ -153,10 +157,8 @@ class SiteBuilder
         $this->ensureDir($outDir);
         copy(__DIR__ . '/style.css', $outDir . '/style.css');
         copy(__DIR__ . '/theme.js', $outDir . '/theme.js');
+        copy(__DIR__ . '/nav.js', $outDir . '/nav.js');
         copy(__DIR__ . "/themes/{$theme}.css", $outDir . '/layout.css');
-        if (in_array($theme, self::THEME_SCRIPTS, true)) {
-            copy(__DIR__ . "/themes/{$theme}.js", $outDir . '/layout.js');
-        }
 
         $pageCount = $this->renderDirectory($pagesDir, $outDir, [], $siteTitle);
         if ($pageCount === 0) {
@@ -397,7 +399,7 @@ class SiteBuilder
         // The heading names the navigation already — pointing at it beats
         // repeating the same word in an aria-label for screen readers.
         return '<div class="nav-scrim"></div>'
-            . '<aside class="sidebar" id="' . self::SIDEBAR_ID . '">'
+            . '<aside class="sidebar" id="' . self::NAV_ID . '">'
             . '<nav class="page-tree" aria-labelledby="' . self::SIDEBAR_HEADING_ID . '">'
             . '<h2 id="' . self::SIDEBAR_HEADING_ID . '">' . self::SIDEBAR_HEADING . '</h2>'
             . '<ul>' . $this->treeItem($this->tree, [], $current, $prefix) . '</ul>'
@@ -405,21 +407,21 @@ class SiteBuilder
     }
 
     /**
-     * The `wiki` drawer's toggle, for the site header — the one part of the
-     * page a drawer sliding over it doesn't cover, so the button that opened
-     * it can also close it.
+     * The drawer's toggle, for the site header — the one part of the page a
+     * drawer sliding over it doesn't cover, so the button that opened it can
+     * also close it. The same button under either layout; only what it is
+     * called differs, each layout naming what it holds.
      *
-     * Ships `hidden`, like the light/dark toggle: `layout.js` is the only
-     * thing that can make it do anything, and a page without it shows the
-     * tree outright rather than behind a button that wouldn't work.
+     * Ships `hidden`, like the light/dark toggle: `nav.js` is the only thing
+     * that can make it do anything, and a page without it shows the
+     * navigation outright rather than behind a button that wouldn't work.
      *
-     * The name stays "Contents" whether the drawer is open or shut — it names
+     * The name stays the same whether the drawer is open or shut — it names
      * what the button controls, and `aria-expanded` says which way it stands.
      */
-    private function navToggle(): string
+    private function navToggle(string $label): string
     {
-        $label = self::SIDEBAR_HEADING;
-        $controls = self::SIDEBAR_ID;
+        $controls = self::NAV_ID;
 
         return <<<HTML
 <button type="button" class="nav-toggle" hidden aria-expanded="false" aria-controls="{$controls}" aria-label="{$label}">
@@ -478,10 +480,33 @@ HTML;
      * to either, so that page's own siblings stay in the primary bar instead
      * of moving down, the same as any page with children of its own.
      *
+     * Both bars go in one box, with the drawer's scrim in front of it: on a
+     * narrow screen there is no room for them above the page, so they slide
+     * down out of the site header instead, and a pair of bars sliding
+     * separately would each travel its own height and arrive out of step. The
+     * box is inert under the wide layout, where `layout.css` leaves it
+     * `display: contents` and each bar lands where it always did.
+     *
      * @param list<string> $path Slugs from the site root down to the page being written
      * @param string $prefix `../` per level between that page and the site root
      */
     private function topNav(array $path, string $prefix): string
+    {
+        $bars = $this->topNavBars($path, $prefix);
+
+        return $bars === ''
+            ? ''
+            : '<div class="nav-scrim"></div><div class="nav-drawer" id="' . self::NAV_ID . '">' . $bars . '</div>';
+    }
+
+    /**
+     * The bars themselves, in the order they stack — see topNav() above for
+     * which pages get which, and what holds them.
+     *
+     * @param list<string> $path Slugs from the site root down to the page being written
+     * @param string $prefix `../` per level between that page and the site root
+     */
+    private function topNavBars(array $path, string $prefix): string
     {
         $up = $this->upLink($path, $prefix, 'topnav-up');
 
@@ -717,9 +742,7 @@ HTML;
         $layoutStyles = $prefix . 'layout.css';
         $stylesheet = $prefix . 'style.css';
         $themeScript = $prefix . 'theme.js';
-        $layoutScript = in_array($this->theme, self::THEME_SCRIPTS, true)
-            ? '<script src="' . $prefix . 'layout.js"></script>'
-            : '';
+        $navScript = $prefix . 'nav.js';
         // The dividers around the content and the prev/next links below it
         // are the same under both layouts; only how the rest of the site is
         // reached differs — the whole tree in `wiki`'s sidebar, the current
@@ -728,10 +751,14 @@ HTML;
         // its own into the bar, beside the page links it sits above. Listed
         // rather than branched on, so a third theme can't quietly inherit
         // whichever layout happens to be the `else`.
-        [$nav, $navToggle, $upAboveTitle] = match ($this->theme) {
-            'wiki' => [$this->sidebar($path, $prefix), $this->navToggle(), $this->upLink($path, $prefix, 'page-up')],
-            'topnav' => [$this->topNav($path, $prefix), '', ''],
+        [$nav, $toggleLabel, $upAboveTitle] = match ($this->theme) {
+            'wiki' => [$this->sidebar($path, $prefix), self::SIDEBAR_HEADING, $this->upLink($path, $prefix, 'page-up')],
+            'topnav' => [$this->topNav($path, $prefix), self::MENU_LABEL, ''],
         };
+        // Either layout's navigation is a drawer on a narrow screen, so either
+        // gets the handle that opens it — bar the page that has no navigation
+        // at all, which under `topnav` is every page of a single-page site.
+        $navToggle = $nav === '' ? '' : $this->navToggle($toggleLabel);
         $pageHeaderInner = $upAboveTitle . '<h1 class="page-title">' . $title . '</h1>';
         $afterHeader = '<hr class="page-divider">'
             . $main
@@ -750,7 +777,7 @@ HTML;
         <link rel="stylesheet" href="{$layoutStyles}">
         <!-- Blocking on purpose: the state the stylesheets key off is set before the first paint. -->
         <script src="{$themeScript}"></script>
-        {$layoutScript}
+        <script src="{$navScript}"></script>
     </head>
     <body>
         <header class="site-header">

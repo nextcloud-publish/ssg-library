@@ -103,11 +103,11 @@ a:hover { text-decoration-thickness: 2px; }
 .site-header a:hover { color: var(--text); }
 
 /*
- * The site header's icon buttons: the light/dark toggle, and — under `wiki` —
- * the drawer handle beside it. Both are a bare SVG on no background, and both
- * ship `hidden` for the script that gives them something to do, so what they
- * have in common is written here rather than once per layout. Each adds its
- * own shape and placement below.
+ * The site header's icon buttons: the light/dark toggle, and the drawer
+ * handle beside it. Both are a bare SVG on no background, and both ship
+ * `hidden` for the script that gives them something to do, so what they have
+ * in common is written here rather than once per layout. Each adds its own
+ * shape and placement below.
  */
 .theme-toggle, .nav-toggle {
     display: flex;
@@ -476,6 +476,62 @@ main {
 /* The link pointing at the page being shown. Each layout marks it further. */
 .sidebar li a[aria-current], .topnav li a[aria-current], .subnav li a[aria-current] {
     font-weight: 600;
+}
+
+/* ---------- Navigation drawer, shared ---------- */
+
+/*
+ * Below its own breakpoint each layout moves its navigation off the page and
+ * behind the header's handle, where it slides back over the page as a drawer
+ * — `wiki`'s sidebar in from the left, `topnav`'s bars down from behind the
+ * header. Which way it slides and from what width is each layout's business,
+ * since only it knows when its navigation stops fitting; the handle, the
+ * scrim and the state they share are the same either way and so are written
+ * here. All of it hangs off `:root[data-nav]`, which `nav.js` sets as it
+ * loads: with no script to open a drawer, nothing below applies and the
+ * navigation stays where it is on the page.
+ */
+
+/*
+ * Off until a layout's own breakpoint switches it back on — above it the
+ * navigation is simply there, with nothing for a button to do.
+ */
+.nav-toggle { display: none; }
+/*
+ * Bars into a cross: the outer two slide onto the middle one's line and turn
+ * across each other there, the middle one fades out beneath them. `fill-box`
+ * is what makes each bar turn around its own centre instead of the icon's.
+ */
+.nav-toggle svg line {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform .2s ease, opacity .2s ease;
+}
+.nav-toggle[aria-expanded="true"] svg line:nth-child(1) { transform: translateY(4px) rotate(45deg); }
+.nav-toggle[aria-expanded="true"] svg line:nth-child(2) { opacity: 0; }
+.nav-toggle[aria-expanded="true"] svg line:nth-child(3) { transform: translateY(-4px) rotate(-45deg); }
+
+/*
+ * Dims the page under an open drawer, and closes it when clicked. Laid out
+ * here but left `display: none`, which each layout lifts inside its own
+ * breakpoint — everything below it is inert until it does.
+ */
+.nav-scrim {
+    display: none;
+    position: fixed;
+    /* From below the site header, which every drawer stays clear of so the
+       button that opened it can close it again. */
+    inset: var(--header-height) 0 0;
+    /* Over the page, under the drawer and the header both. */
+    z-index: 8;
+    background: rgb(0 0 0 / .45);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .25s ease, visibility .25s;
+}
+:root[data-nav="open"] .nav-scrim {
+    opacity: 1;
+    visibility: visible;
 }
 
 @media (prefers-reduced-motion: reduce) {

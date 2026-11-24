@@ -20,7 +20,8 @@
  * secondary, children bar) carries no such trick — it just sits in the normal
  * flow below the header, the way `.topnav` alone used to, and the way
  * `.topnav` itself falls back to once the row is too narrow to share (see the
- * media query at the bottom).
+ * media query at the bottom), where the two together slide out of the header
+ * as one drawer.
  *
  * A darker, blue-accented palette, scoped to this layout alone by living here
  * rather than in the shared style.css tokens `wiki` also reads.
@@ -69,16 +70,30 @@
 }
 
 /*
+ * The box around both bars. It exists for the drawer alone — two bars sliding
+ * on their own would each travel their own height, and the second would still
+ * be on screen when the first had gone — so everywhere else it steps out of
+ * the way entirely and leaves each bar laid out against the body, the fixed
+ * one over the header's row and the other in the flow below it.
+ */
+.nav-drawer {
+    display: contents;
+}
+
+/*
  * Both bars are the same thing — a centred row of links — so that part is
  * written once, and each sets only what makes it itself below. The spacing
  * between links is a variable rather than a declaration because it is the one
- * thing the narrow-screen rules at the bottom tighten on both of them.
+ * thing the narrow-screen rules at the bottom tighten on both of them. The
+ * bar's own gap — all it separates is the "Up" button from the links — is
+ * wider than either, so the button reads as apart from them rather than as
+ * the first of them.
  */
 .topnav, .subnav {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: .75rem;
+    gap: 2rem;
 }
 .topnav ul, .subnav ul {
     display: flex;
@@ -140,7 +155,14 @@
     color: var(--accent-soft);
 }
 
-@media (max-width: 40rem) {
+/*
+ * `screen` on purpose, as in `wiki.css`: a printed page is laid out at
+ * whatever width the paper is, which can well be under the breakpoint, and
+ * the scroll lock a drawer printed shut would leave behind takes everything
+ * past the first page with it. Print has no navigation at all (style.css
+ * hides both bars with the header) and so needs nothing from here.
+ */
+@media screen and (max-width: 40rem) {
     .topnav { --nav-gap: 1rem; }
     .subnav { --nav-gap: .85rem; }
 
@@ -161,5 +183,73 @@
         pointer-events: auto;
         border-bottom: 1px solid var(--border);
         background: var(--bg-sunken);
+        /*
+         * The "Up" button takes a line of its own above the links rather than
+         * the room beside them: at this width the links already wrap, and a
+         * button sharing their row would push the wrap one link earlier while
+         * reading as the first of them. On top of the bars it reads as what
+         * it is — where the whole drawer goes back to.
+         */
+        flex-direction: column;
+        gap: .5rem;
     }
+
+    /* ---------- Drawer ---------- */
+
+    /*
+     * With the script, the stacked bars above become a drawer and the header
+     * gains the handle that opens it. Both bars keep every rule that makes
+     * them what they are: the drawer is the same pair of bands, in the same
+     * place under the header, only now they arrive when asked rather than
+     * taking the top of every page before the page itself. Without the
+     * script nothing here applies and they stay where they are — the only
+     * fallback that leaves a navigation nothing can open out of the question.
+     */
+    :root[data-nav] .nav-toggle:not([hidden]) { display: flex; }
+    :root[data-nav] .nav-scrim { display: block; }
+
+    :root[data-nav] .nav-drawer {
+        /* No longer `display: contents`: the bars slide as the one box. */
+        display: block;
+        position: fixed;
+        /* Hung off the bottom edge of the site header it comes out from. */
+        inset: var(--header-height) 0 auto 0;
+        /* Under the header, which it slides behind; over the scrim and the page. */
+        z-index: 9;
+        /*
+         * A deep enough tree can fill both bars past the screen. `dvh` rather
+         * than `vh` so a phone's retracting toolbar can't park the last row
+         * somewhere unreachable.
+         */
+        max-height: calc(100dvh - var(--header-height));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        box-shadow: 0 0 2rem rgb(0 0 0 / .18);
+        /*
+         * `visibility` rather than offset alone: a drawer that is merely
+         * parked off-screen still answers the Tab key, so its links would be
+         * reachable on a page that doesn't show them. It flips in step with
+         * the slide instead of part-way through it.
+         */
+        visibility: hidden;
+        transform: translateY(-100%);
+        transition: transform .25s ease, visibility .25s;
+    }
+    :root[data-nav="open"] .nav-drawer {
+        visibility: visible;
+        transform: none;
+    }
+
+    /*
+     * The drawer slides out from behind the header, so the header has to be
+     * something to be behind: the translucent fill it carries everywhere else
+     * would show the bars travelling up through it on the way shut.
+     */
+    :root[data-nav] .site-header {
+        background: var(--bg);
+        backdrop-filter: none;
+    }
+
+    /* The page shouldn't scroll away behind an open drawer. */
+    :root[data-nav="open"] body { overflow: hidden; }
 }

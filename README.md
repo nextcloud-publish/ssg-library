@@ -103,9 +103,9 @@ accepted as well):
 | `theme` | string | `wiki`  | `wiki` or `topnav` |
 
 `theme` picks how a page navigates to the rest of the site. Its stylesheet
-(`src/themes/*.css`) is copied to the output as `layout.css`, and its script, if
-it has one (`src/themes/*.js`), as `layout.js`; prose and the light/dark toggle
-are the same under both. So is the content around a page's body: a way back up
+(`src/themes/*.css`) is copied to the output as `layout.css`; prose, the
+light/dark toggle and the drawer script (`nav.js`) are the same under both. So
+is the content around a page's body: a way back up
 to the immediate parent, dividers either side of the content, and links to the
 previous and next page in the tree's reading order below it. Colors, typography,
 and how the rest of the site is reached are each layout's own — and with it
@@ -137,7 +137,13 @@ than the page body shared between them.
   bar instead of moving down, the same as any page with children of its own.
   Below 40rem the first bar stops sharing the title's row, where its links
   would have had to wrap over the page below, and takes a band of its own
-  under it instead.
+  under it instead, the "Up" button moving onto a line of its own above the
+  links rather than sharing the row they already wrap in. Both bands then
+  become a drawer that slides down out of the site header, opened and closed
+  the same way the `wiki` one is; with
+  JavaScript unavailable they stay on the page as the bands they are, and the
+  button is never shown. A site of a single page has no bar at all, and so no
+  drawer and no button either.
 
 Under neither layout does the page body repeat its sub-pages as a list: the
 sidebar and the bar already link them.
@@ -166,13 +172,13 @@ external ones get `rel="nofollow"`.
 
 The library sets no Content-Security-Policy: the web server serving the output
 should send one as a response header, so it also covers attachments opened
-directly. Scripts from the site's own origin are enough (`theme.js` is the only
-one), images and media from the site only, and inline styles are needed for
-the `style` attributes HTMLPurifier keeps.
+directly. Scripts from the site's own origin are enough (`theme.js` and
+`nav.js` are the only ones), images and media from the site only, and inline
+styles are needed for the `style` attributes HTMLPurifier keeps.
 
-Generated pages ship with a light/dark theme toggle (`style.css`, `theme.js`),
-copied into the output directory on every build, alongside the selected
-layout's `layout.css` and — under `wiki` — its `layout.js`.
+Generated pages ship with a light/dark theme toggle (`style.css`, `theme.js`)
+and the navigation drawer's script (`nav.js`), copied into the output
+directory on every build alongside the selected layout's `layout.css`.
 
 ### Why sanitization is split into two places
 

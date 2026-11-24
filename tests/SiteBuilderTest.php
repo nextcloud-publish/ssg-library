@@ -97,9 +97,10 @@ class SiteBuilderTest extends TestCase
     }
 
     /**
-     * On a narrow screen the `wiki` sidebar is a drawer, which needs a script
-     * and a button in the header to open it. Both are the layout's own: under
-     * `topnav` there is no tree to toggle, so neither is written.
+     * On a narrow screen either layout's navigation is a drawer, which needs
+     * a script and a button in the header to open it. The script is the same
+     * one for both; what differs is what it finds under the shared id — the
+     * `wiki` sidebar here, the box around `topnav`'s bars below.
      */
     public function testWikiThemeShipsTheDrawerToggleAndScript(): void
     {
@@ -107,26 +108,54 @@ class SiteBuilderTest extends TestCase
 
         (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample');
 
-        self::assertFileEquals(__DIR__ . '/../src/themes/wiki.js', $this->outDir . '/layout.js');
+        self::assertFileEquals(__DIR__ . '/../src/nav.js', $this->outDir . '/nav.js');
 
         $leaf = (string)file_get_contents($this->outDir . '/Cats/Paws/index.html');
-        self::assertStringContainsString('<script src="../../layout.js"></script>', $leaf);
+        self::assertStringContainsString('<script src="../../nav.js"></script>', $leaf);
         // The button says what it controls, and the sidebar answers to that id.
-        self::assertStringContainsString('aria-controls="page-tree"', $leaf);
-        self::assertStringContainsString('<aside class="sidebar" id="page-tree">', $leaf);
+        self::assertStringContainsString('aria-controls="site-nav"', $leaf);
+        self::assertStringContainsString('<aside class="sidebar" id="site-nav">', $leaf);
         // Shut, and hidden until the script that can open it has run.
         self::assertStringContainsString('class="nav-toggle" hidden aria-expanded="false"', $leaf);
     }
 
-    public function testTopnavThemeShipsNeitherDrawerNorItsScript(): void
+    /**
+     * Under `topnav` the drawer is both bars at once, which is why they are
+     * written into a box of their own: sliding separately they would arrive
+     * out of step. The box answers to the same id the `wiki` sidebar does, so
+     * one script opens either.
+     */
+    public function testTopnavThemeShipsItsBarsAsADrawer(): void
+    {
+        $this->writePages();
+
+        (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample', ['theme' => 'topnav']);
+
+        $cats = (string)file_get_contents($this->outDir . '/Cats/index.html');
+        self::assertStringContainsString('<script src="../nav.js"></script>', $cats);
+        self::assertStringContainsString('aria-controls="site-nav"', $cats);
+        self::assertStringContainsString('class="nav-toggle" hidden aria-expanded="false"', $cats);
+        self::assertStringContainsString('<div class="nav-scrim"></div>', $cats);
+        // Both bars inside the one box.
+        self::assertMatchesRegularExpression(
+            '#<div class="nav-drawer" id="site-nav"><nav class="topnav".*<nav class="subnav".*</nav></div>#s',
+            $cats,
+        );
+    }
+
+    /**
+     * A site of a single page has nothing to navigate to: `topnav` writes no
+     * bar for it, and so no drawer and no handle either — a button opening an
+     * empty box would be worse than no button.
+     */
+    public function testTopnavThemeShipsNoDrawerForASiteWithoutSubPages(): void
     {
         (new SiteBuilder())->build($this->pagesDir, $this->outDir, 'Sample', ['theme' => 'topnav']);
 
         $root = (string)file_get_contents($this->outDir . '/index.html');
-        self::assertFileDoesNotExist($this->outDir . '/layout.js');
-        self::assertStringNotContainsString('layout.js', $root);
         self::assertStringNotContainsString('nav-toggle', $root);
         self::assertStringNotContainsString('nav-scrim', $root);
+        self::assertStringNotContainsString('nav-drawer', $root);
     }
 
     /**

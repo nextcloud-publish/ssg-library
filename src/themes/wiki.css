@@ -11,10 +11,10 @@
  *
  * Narrow screens have no room for a column beside the page, so there the tree
  * slides in over it as a drawer, opened from a button in the site header. All
- * of that hangs off `:root[data-nav]`, which `wiki.js` (copied out as
- * `layout.js`) sets as it loads — without the script nothing could open the
- * drawer, so a tree that hid itself would be a tree no one could reach, and
- * the rules below fall back to a plain band above the page instead.
+ * of that hangs off `:root[data-nav]`, which `nav.js` sets as it loads —
+ * without the script nothing could open the drawer, so a tree that hid itself
+ * would be a tree no one could reach, and the rules below fall back to a
+ * plain band above the page instead.
  */
 :root {
     --sidebar-width: 17rem;
@@ -155,32 +155,10 @@ body {
 /* ---------- Drawer ---------- */
 
 /*
- * The toggle, styled as a header icon button alongside the theme toggle in
- * style.css. It lives in the site header rather than beside the tree it
- * opens, which is the only place that stays clear of the drawer sliding over
- * the page. Off by default and switched back on in the media query below: on
- * a screen wide enough for the sidebar the tree is simply there, with nothing
- * for a button to do.
- */
-.nav-toggle { display: none; }
-/*
- * Bars into a cross: the outer two slide onto the middle one's line and turn
- * across each other there, the middle one fades out beneath them. `fill-box`
- * is what makes each bar turn around its own centre instead of the icon's.
- */
-.nav-toggle svg line {
-    transform-box: fill-box;
-    transform-origin: center;
-    transition: transform .2s ease, opacity .2s ease;
-}
-.nav-toggle[aria-expanded="true"] svg line:nth-child(1) { transform: translateY(4px) rotate(45deg); }
-.nav-toggle[aria-expanded="true"] svg line:nth-child(2) { opacity: 0; }
-.nav-toggle[aria-expanded="true"] svg line:nth-child(3) { transform: translateY(-4px) rotate(-45deg); }
-
-/* Dims the page under an open drawer, and closes it when clicked. */
-.nav-scrim { display: none; }
-
-/*
+ * The handle and the scrim are the same under either layout and drawn in
+ * style.css; what follows is only where this one's drawer comes from and how
+ * wide a screen has to be before it stops being one.
+ *
  * `screen` on purpose: a printed page is laid out at whatever width the paper
  * is, which can well be under the breakpoint, and a drawer printed shut would
  * take the navigation — and, with the scroll lock, everything past the first
@@ -208,6 +186,7 @@ body {
 
     /* With the script, the same tree is a drawer, and the header gains its handle. */
     :root[data-nav] .nav-toggle:not([hidden]) { display: flex; }
+    :root[data-nav] .nav-scrim { display: block; }
 
     :root[data-nav] .sidebar {
         /* Below the site header, which keeps the toggle clear of the drawer. */
@@ -227,22 +206,6 @@ body {
     :root[data-nav="open"] .sidebar {
         visibility: visible;
         transform: none;
-    }
-
-    :root[data-nav] .nav-scrim {
-        display: block;
-        position: fixed;
-        inset: var(--header-height) 0 0;
-        /* Under the site header, over everything else. */
-        z-index: 9;
-        background: rgb(0 0 0 / .45);
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity .25s ease, visibility .25s;
-    }
-    :root[data-nav="open"] .nav-scrim {
-        opacity: 1;
-        visibility: visible;
     }
 
     /* The page shouldn't scroll away behind an open drawer. */

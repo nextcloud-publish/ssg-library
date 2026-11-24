@@ -9,11 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Below 60rem the `wiki` sidebar is a drawer that slides in from the left, opened from a button
-  in the site header and closed by that button, by the dimmed page behind it, or by Escape. It
-  used to be a band above the page, which it still is where JavaScript is unavailable and the
-  drawer could not be opened. A layout may now ship a script (`src/themes/<theme>.js`) next to
-  its stylesheet, copied to the output as `layout.js`; `wiki` is the only one that has one.
+- Each layout puts its navigation behind a button in the site header once the screen is too
+  narrow to carry it: below 60rem the `wiki` sidebar slides in from the left, below 40rem
+  `topnav`'s two bars slide down out of the header together. Either is closed by that button,
+  by the dimmed page behind it, or by Escape. Where JavaScript is unavailable the navigation
+  stays on the page as it was — a band above it under `wiki`, the two bars under `topnav` —
+  and the button is never shown. The drawer ships as `nav.js`, copied to the output on every
+  build next to `theme.js`.
 
 ### Changed
 
