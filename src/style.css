@@ -139,7 +139,7 @@ main {
     padding: 0 1.5rem;
 }
 
-/* Eyebrow and title stack above the meta/divider/content/divider/prev-next below. */
+/* Up link and title stack above the divider/content/divider/prev-next below. */
 .page-header {
     margin: 3rem 0 0;
 }
@@ -156,26 +156,46 @@ main {
 
 .page { margin-top: 2rem; }
 
-/* Link to the immediate parent, above the title; empty and absent on the root page. */
-.page-up {
+/*
+ * The "Up" link to the parent page, under either layout — `wiki` puts it
+ * above the title, `topnav` in its navbar — so the control itself is written
+ * once here and each layout adds only where it sits and, where the band
+ * underneath it calls for it, what fills it. A button rather than a text
+ * link: it's chrome, not the page's first line. Nothing about it glints —
+ * flat fill, hairline border, and a hover that firms the border and the text
+ * rather than lighting the whole thing up.
+ */
+.page-up,
+.topnav-up {
     display: inline-flex;
     align-items: center;
-    gap: .35rem;
-    margin: 0 0 .8rem;
+    gap: .4rem;
+    padding: .25rem .7rem .25rem .55rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-sunken);
     color: var(--text-muted);
-    font-size: .85rem;
+    font-size: .8rem;
+    line-height: 1.6;
     text-decoration: none;
 }
-.page-up:hover {
-    color: var(--link);
-    text-decoration: underline;
+/*
+ * Matched on its own because the bare `a:visited` above out-specifies a lone
+ * class: a button that turns purple once followed stops looking like one.
+ * Color only — the rest of the rule above applies to visited links already.
+ */
+.page-up:visited,
+.topnav-up:visited {
+    color: var(--text-muted);
+}
+.page-up:hover,
+.topnav-up:hover {
+    border-color: var(--border-strong);
+    color: var(--text);
 }
 
-.page-meta {
-    margin: .6rem 0 0;
-    color: var(--text-muted);
-    font-size: .85rem;
-}
+/* Above the title, with the page's own first line below it. */
+.page-up { margin: 0 0 1rem; }
 
 .page-divider {
     height: 1px;
@@ -191,30 +211,48 @@ main {
     align-items: flex-start;
     gap: 1.5rem;
 }
+/*
+ * Each end is a button of its own — the same flat fill and hairline border as
+ * the "Up" button above, so the three read as one family — with the eyebrow
+ * label stacked over the page's title inside it.
+ */
 .page-nav-link {
     display: flex;
     flex-direction: column;
     gap: .15rem;
+    padding: .55rem .9rem .65rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-sunken);
     text-decoration: none;
+}
+.page-nav-link:hover {
+    border-color: var(--border-strong);
 }
 .page-nav-next {
     text-align: right;
 }
+/* Lighter than the muted body text: the eyebrow names the direction, the title below it carries the weight. */
 .page-nav-label {
     font-family: var(--sans);
     font-size: .72rem;
     font-weight: 700;
     letter-spacing: .09em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: color-mix(in srgb, var(--text-muted) 75%, transparent);
 }
+/*
+ * Muted at rest and full strength on hover, like the "Up" button above —
+ * these are chrome below the page, and shouldn't pull the eye the way the
+ * prose they follow does.
+ */
 .page-nav-title {
     font-family: var(--serif);
     font-size: 1.1rem;
-    color: var(--text);
+    color: var(--text-muted);
 }
 .page-nav-link:hover .page-nav-title {
-    color: var(--link);
+    color: var(--text);
 }
 
 /* ---------- Prose ---------- */
@@ -419,19 +457,24 @@ main {
  * Every navigation either layout emits — `wiki`'s tree, `topnav`'s two bars —
  * renders its links as a plain list. Where that list sits and how it flows is
  * the layout file's business; this is just what they all look like.
+ *
+ * The link rules below reach through an `li` on purpose: `topnav`'s "Up"
+ * button sits inside the same `<nav>` as the list but outside it, and a bare
+ * `.topnav a` would out-specify the button's own class and take its padding,
+ * size and color back.
  */
 .sidebar ul, .topnav ul, .subnav ul {
     margin: 0;
     padding: 0;
     list-style: none;
 }
-.sidebar a, .topnav a, .subnav a {
+.sidebar li a, .topnav li a, .subnav li a {
     color: var(--text);
     text-decoration: none;
 }
-.sidebar a:hover, .topnav a:hover, .subnav a:hover { color: var(--link); }
+.sidebar li a:hover, .topnav li a:hover, .subnav li a:hover { color: var(--link); }
 /* The link pointing at the page being shown. Each layout marks it further. */
-.sidebar a[aria-current], .topnav a[aria-current], .subnav a[aria-current] {
+.sidebar li a[aria-current], .topnav li a[aria-current], .subnav li a[aria-current] {
     font-weight: 600;
 }
 

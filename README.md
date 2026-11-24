@@ -106,11 +106,11 @@ accepted as well):
 (`src/themes/*.css`) is copied to the output as `layout.css`, and its script, if
 it has one (`src/themes/*.js`), as `layout.js`; prose and the light/dark toggle
 are the same under both. So is the content around a page's body: a way back up
-to the immediate parent, a generated-at stamp, dividers either side of the
-content, and links to the previous and next page in the tree's reading order
-below it. Colors, typography, and how the rest of the site is reached are each
-layout's own — and with it where that way up a level lives, as part of each
-layout's own navigation rather than the page body shared between them.
+to the immediate parent, dividers either side of the content, and links to the
+previous and next page in the tree's reading order below it. Colors, typography,
+and how the rest of the site is reached are each layout's own — and with it
+where that way up a level lives, as part of each layout's own navigation rather
+than the page body shared between them.
 
 - **`wiki`** puts the site's whole page tree in a sidebar on the left, the same
   on every page, with the page being shown marked `aria-current="page"`. Below

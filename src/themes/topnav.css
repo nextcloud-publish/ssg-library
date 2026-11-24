@@ -77,9 +77,10 @@
     gap: var(--nav-gap);
 }
 .topnav li, .subnav li { display: flex; }
-.topnav a, .subnav a { padding: .2rem 0; }
+/* Reaching through the `li` keeps these off the "Up" button — see style.css. */
+.topnav li a, .subnav li a { padding: .2rem 0; }
 /* The weight is shared (style.css); the full-strength color is this layout's. */
-.topnav a[aria-current], .subnav a[aria-current] { color: var(--text); }
+.topnav li a[aria-current], .subnav li a[aria-current] { color: var(--text); }
 
 /* The primary bar, fixed over the header's row — see the note up top. */
 .topnav {
@@ -92,7 +93,7 @@
 }
 /* Everything the bar actually draws takes the pointer back off the header. */
 .topnav > * { pointer-events: auto; }
-.topnav a { font-size: .9rem; }
+.topnav li a { font-size: .9rem; }
 
 /*
  * The secondary bar: in the normal flow below the header (and below the
@@ -105,33 +106,23 @@
     border-bottom: 1px solid var(--border);
     background: var(--bg-sunken);
 }
-.subnav a { color: var(--text-muted); font-size: .85rem; }
+.subnav li a { color: var(--text-muted); font-size: .85rem; }
 
 /*
  * The "Up" button, left of whichever bar carries the current page's own
- * siblings — just an arrow, since it sits right next to the page links it
- * means "up" relative to.
+ * siblings. It is the same button `wiki` keeps above the page title, drawn by
+ * the shared `.page-up`/`.topnav-up` rule in style.css; all this layout adds
+ * is that the bar must not stretch or shrink it, and a raised fill instead of
+ * the shared sunken one — on a narrow screen it sits on the sunken band
+ * `.subnav` draws and would otherwise disappear into it.
  */
 .topnav-up {
-    display: flex;
     flex: none;
-    align-items: center;
-    justify-content: center;
-    width: 1.8rem;
-    height: 1.8rem;
-    border-radius: 50%;
-    color: var(--text-muted);
-    font-size: 1rem;
-    text-decoration: none;
-}
-.topnav-up:hover {
-    color: var(--link);
     background: var(--bg-raised);
 }
 
-/* The generated-at stamp reads as part of the same centred column as the title. */
-.page-header,
-.page-meta {
+/* The title sits centred in this layout, under its centred bars. */
+.page-header {
     text-align: center;
 }
 

@@ -77,9 +77,6 @@ class SiteBuilder
     private const PREV_LABEL = 'Prev';
     private const NEXT_LABEL = 'Next';
 
-    /** sprintf() format string taking the build timestamp. */
-    private const FOOTER = 'Generated %s UTC';
-
     /**
      * File extensions, lower-case, of the attachments copied to the output; any other file is
      * left out. Everything in the output is served from the published origin, so an attachment
@@ -486,7 +483,7 @@ HTML;
      */
     private function topNav(array $path, string $prefix): string
     {
-        $up = $this->upButton($path, $prefix);
+        $up = $this->upLink($path, $prefix, 'topnav-up');
 
         if ($path === []) {
             $ownChildren = $this->navList($this->childrenAt($path), $path, $prefix, null);
@@ -535,24 +532,6 @@ HTML;
         return '<nav class="' . $class . '" aria-label="' . $label . '">' . $before . '<ul>' . $items . '</ul></nav>';
     }
 
-    /**
-     * The `topnav` layout's "Up" button, left of the current page's siblings
-     * in whichever bar carries them — just an arrow, rather than the "Up"
-     * link `wiki` keeps above the page's title, since here it sits right next
-     * to the page links it means "up" relative to. Empty on the root page,
-     * which has no parent to go up to.
-     *
-     * @param list<string> $path Slugs from the site root down to the page being written
-     * @param string $prefix `../` per level between that page and the site root
-     */
-    private function upButton(array $path, string $prefix): string
-    {
-        $href = $this->parentHref($path, $prefix);
-
-        return $href === null
-            ? ''
-            : '<a class="topnav-up" href="' . $href . '" aria-label="' . self::UP_LABEL . '">↑</a>';
-    }
 
     /**
      * The escaped href of $path's parent page, ready for an attribute — or
@@ -659,21 +638,26 @@ HTML;
     }
 
     /**
-     * The `wiki` layout's "Up" link above a page's title: a link to the
-     * immediate parent page, with an arrow — see upButton() for `topnav`'s
-     * own, folded into its navbar instead. Empty on the root page, which has
-     * no parent to go up to.
+     * The "Up" link to the immediate parent page: an arrow and the word, the
+     * same button under either layout, which is why only the class differs —
+     * `wiki` keeps it above the page's title (`page-up`), `topnav` folds it
+     * into its navbar beside the page links it means "up" relative to
+     * (`topnav-up`). Empty on the root page, which has no parent to go up to.
+     *
+     * The arrow is `aria-hidden` rather than labelling the link, since the
+     * word beside it already names the destination.
      *
      * @param list<string> $path Slugs from the site root down to the page being written
      * @param string $prefix `../` per level between that page and the site root
+     * @param string $class The emitting layout's class for it, styled in that layout's stylesheet
      */
-    private function upLink(array $path, string $prefix): string
+    private function upLink(array $path, string $prefix, string $class): string
     {
         $href = $this->parentHref($path, $prefix);
 
         return $href === null
             ? ''
-            : '<a class="page-up" href="' . $href . '"><span aria-hidden="true">↑</span> ' . self::UP_LABEL . '</a>';
+            : '<a class="' . $class . '" href="' . $href . '"><span aria-hidden="true">↑</span> ' . self::UP_LABEL . '</a>';
     }
 
     /**
@@ -736,23 +720,20 @@ HTML;
         $layoutScript = in_array($this->theme, self::THEME_SCRIPTS, true)
             ? '<script src="' . $prefix . 'layout.js"></script>'
             : '';
-        $footerText = sprintf(self::FOOTER, gmdate('Y-m-d H:i:s'));
-        // The generated-at stamp, the dividers around the content, and the
-        // prev/next links below it are the same under both layouts; only how
-        // the rest of the site is reached differs — the whole tree in
-        // `wiki`'s sidebar, the current page's own children in `topnav`'s
-        // bar — and with it the way back up a level: `wiki` keeps its "Up"
-        // link above the title, `topnav` folds its own into the bar, beside
-        // the page links it sits above. Listed rather than branched on, so a
-        // third theme can't quietly inherit whichever layout happens to be
-        // the `else`.
+        // The dividers around the content and the prev/next links below it
+        // are the same under both layouts; only how the rest of the site is
+        // reached differs — the whole tree in `wiki`'s sidebar, the current
+        // page's own children in `topnav`'s bar — and with it the way back up
+        // a level: `wiki` keeps its "Up" link above the title, `topnav` folds
+        // its own into the bar, beside the page links it sits above. Listed
+        // rather than branched on, so a third theme can't quietly inherit
+        // whichever layout happens to be the `else`.
         [$nav, $navToggle, $upAboveTitle] = match ($this->theme) {
-            'wiki' => [$this->sidebar($path, $prefix), $this->navToggle(), $this->upLink($path, $prefix)],
+            'wiki' => [$this->sidebar($path, $prefix), $this->navToggle(), $this->upLink($path, $prefix, 'page-up')],
             'topnav' => [$this->topNav($path, $prefix), '', ''],
         };
         $pageHeaderInner = $upAboveTitle . '<h1 class="page-title">' . $title . '</h1>';
-        $afterHeader = '<p class="page-meta">' . $footerText . '</p>'
-            . '<hr class="page-divider">'
+        $afterHeader = '<hr class="page-divider">'
             . $main
             . '<hr class="page-divider">'
             . $this->prevNext($path, $prefix);
