@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   stays on the page as it was — a band above it under `wiki`, the two bars under `topnav` —
   and the button is never shown. The drawer ships as `nav.js`, copied to the output on every
   build next to `theme.js`.
+- `wiki` and `topnav` each carry their own palette over the design tokens in `style.css` instead
+  of only differing in layout: `wiki` a darker, teal-accented look, `topnav` a darker,
+  blue-accented one.
+- `topnav` hands each top-level page, and every page under it, one of seven hues in turn,
+  wrapping around once a site has more sections than hues: the page's title and its link in the
+  navbar share that color, so a reader can tell which section they're in before reading a word.
+  The root page, under no section, takes a quieter take on the brand's own accent instead.
+- `wiki`'s page title takes the same accent as the tree's root entry above it, pairing the two
+  serif lines either side of the sidebar's border.
 
 ### Changed
 
@@ -33,6 +42,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The UI chrome text (back link, empty-page message, footer) is the same under both layouts; it
   used to be worded per theme.
 - Entries whose name starts with a dot are skipped wholesale, rather than only `.attachments.*`.
+- The "Up" control and the prev/next links below a page's content are drawn as one family of
+  chrome under both layouts — flat fill, hairline border, muted until hovered — rather than as
+  plain links styled per layout.
+- The shared site header no longer uppercases the site title.
+
+### Removed
+
+- The generated-at timestamp in the page footer; it dated every page on every build without
+  telling a reader anything about the page itself.
 
 ### Fixed
 
