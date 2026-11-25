@@ -1,0 +1,217 @@
+/*
+ * `wiki` layout, selected via `theme: 'wiki'` in $renderOptions (the default)
+ * and copied to the build output as `layout.css`: the whole site as a page
+ * tree in a sidebar that stays put while the page scrolls, the way a wiki's
+ * navigation does. Every page links the same tree, with its own entry marked
+ * `aria-current="page"` — see `topnav.css` for the alternate layout.
+ *
+ * The sidebar is taken out of the flow and the body padded by its width
+ * instead, so the sticky site header and the centred page column below it
+ * need no layout rules of their own.
+ *
+ * Narrow screens have no room for a column beside the page, so there the tree
+ * slides in over it as a drawer, opened from a button in the site header. All
+ * of that hangs off `:root[data-nav]`, which `nav.js` sets as it loads —
+ * without the script nothing could open the drawer, so a tree that hid itself
+ * would be a tree no one could reach, and the rules below fall back to a
+ * plain band above the page instead.
+ */
+:root {
+    --sidebar-width: 17rem;
+
+    /*
+     * A darker, teal-accented palette, scoped to this layout alone by living
+     * here rather than in the shared style.css tokens `topnav` also reads.
+     */
+    --bg: light-dark(#fbfdfc, #0b0f11);
+    --bg-sunken: light-dark(#f1f5f4, #101517);
+    --bg-raised: light-dark(#fff, #161c1f);
+    --text: light-dark(#1b2420, #e7ebe9);
+    --text-muted: light-dark(#5b6662, #8a9490);
+    --border: light-dark(#dfe6e3, #1e2528);
+    --border-strong: light-dark(#c3cdc9, #2d3538);
+    --accent: light-dark(#0f7a6c, #2dd8c5);
+}
+
+body {
+    padding-left: var(--sidebar-width);
+}
+
+/*
+ * The tree's root entry below already carries the site title (styled large,
+ * just under here) — showing it again in the bar above the content would
+ * just repeat it.
+ */
+.site-header > a {
+    display: none;
+}
+
+/*
+ * No visible bar: the header still reserves its height, sticky at the top,
+ * so the theme toggle (and, on narrow screens, the drawer toggle) sit clear
+ * of the content scrolling beneath them — it just shows no background or
+ * border of its own to read as a bar.
+ */
+.site-header {
+    background: none;
+    backdrop-filter: none;
+    border-bottom: 0;
+}
+
+.sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    width: var(--sidebar-width);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.1rem 1rem 2rem 1.5rem;
+    border-right: 1px solid var(--border);
+    background: var(--bg-sunken);
+    font-size: .9rem;
+    line-height: 1.5;
+}
+
+/*
+ * Section label above the tree. The root page's own entry just below it
+ * (styled large below) reads as the sidebar's heading already, so this is
+ * kept for the nav's aria-labelledby but visually hidden rather than shown
+ * twice.
+ */
+.sidebar h2 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+.page-tree li { margin: .08rem 0; }
+.page-tree a {
+    display: block;
+    padding: .22rem .45rem;
+    border-radius: 4px;
+    overflow-wrap: break-word;
+}
+.page-tree a:hover { background: var(--bg-raised); }
+/*
+ * The page being shown, marked by `aria-current="page"` on its own link.
+ * Shared style.css weights it, as it does in `topnav`'s bars; the rule down
+ * its left edge is the tree's own, there being an edge here to rule.
+ */
+.page-tree a[aria-current] {
+    box-shadow: inset 2px 0 0 var(--border-strong);
+}
+
+/*
+ * The site root heads the tree and doubles as the sidebar's title, so it
+ * carries the serif and accent color of a page title.
+ */
+.page-tree > ul > li > a {
+    font-family: var(--serif);
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: var(--accent);
+}
+
+/*
+ * The title of the page being shown takes the same accent as the tree's root
+ * entry above, so the two serif lines either side of the sidebar's border read
+ * as the one pair: where you are in the site, and where in it you are.
+ */
+.page-title {
+    color: var(--accent);
+}
+
+/*
+ * The root's direct children (top-level folders/pages) read as section
+ * headings rather than nested pages: no indent guide, just weight and
+ * spacing to set each group apart.
+ */
+.page-tree > ul > li > ul {
+    margin-top: .9rem;
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+}
+.page-tree > ul > li > ul > li {
+    margin-top: .6rem;
+}
+.page-tree > ul > li > ul > li > a {
+    font-weight: 700;
+    font-size: .92rem;
+    color: var(--text);
+}
+
+/* Sub-pages indent against a guide line down their parent's left edge. */
+.page-tree ul ul {
+    margin-left: .5rem;
+    padding-left: .6rem;
+    border-left: 1px solid var(--border-strong);
+}
+
+/* ---------- Drawer ---------- */
+
+/*
+ * The handle and the scrim are the same under either layout and drawn in
+ * style.css; what follows is only where this one's drawer comes from and how
+ * wide a screen has to be before it stops being one.
+ *
+ * `screen` on purpose: a printed page is laid out at whatever width the paper
+ * is, which can well be under the breakpoint, and a drawer printed shut would
+ * take the navigation — and, with the scroll lock, everything past the first
+ * page — with it. Print gets the rules above and the `@media print` block.
+ */
+@media screen and (max-width: 60rem) {
+    body { padding-left: 0; }
+
+    /*
+     * Without the drawer script the tree can't be opened, so it must not be
+     * closed: a band above the page, capped in height so it can't push the
+     * page itself off the first screen. Scoped to the script being absent
+     * rather than written as a default the drawer below then has to undo —
+     * which is what keeps the drawer's own rules down to what actually makes
+     * it a drawer, the rest inherited from the sidebar it already is.
+     */
+    :root:not([data-nav]) .sidebar {
+        position: static;
+        width: auto;
+        max-height: 45vh;
+        padding: 1rem 1.5rem 1.25rem;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+    /* With the script, the same tree is a drawer, and the header gains its handle. */
+    :root[data-nav] .nav-toggle:not([hidden]) { display: flex; }
+    :root[data-nav] .nav-scrim { display: block; }
+
+    :root[data-nav] .sidebar {
+        /* Below the site header, which keeps the toggle clear of the drawer. */
+        inset: var(--header-height) auto 0 0;
+        width: min(var(--sidebar-width), 84vw);
+        box-shadow: 0 0 2rem rgb(0 0 0 / .18);
+        /*
+         * `visibility` rather than opacity or offset alone: a drawer that is
+         * merely parked off-screen still answers the Tab key, so its links
+         * would be reachable on a page that doesn't show them. It flips in
+         * step with the slide instead of part-way through it.
+         */
+        visibility: hidden;
+        transform: translateX(-100%);
+        transition: transform .25s ease, visibility .25s;
+    }
+    :root[data-nav="open"] .sidebar {
+        visibility: visible;
+        transform: none;
+    }
+
+    /* The page shouldn't scroll away behind an open drawer. */
+    :root[data-nav="open"] body { overflow: hidden; }
+}
+
+@media print {
+    body { padding-left: 0; }
+}

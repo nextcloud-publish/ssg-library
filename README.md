@@ -30,12 +30,12 @@ the terminal:
 bin/build-site.php <pages-dir> <out-dir> [site-title] [theme]
 ```
 
-`[theme]` is `muted` (default) or `colorful` — see [Render options](#render-options).
+`[theme]` is `wiki` (default) or `topnav` — see [Render options](#render-options).
 
 Try it against the sample export in `examples/pages`:
 
 ```sh
-bin/build-site.php examples/pages examples/output "Sample Site" colorful
+bin/build-site.php examples/pages examples/output "Sample Site" topnav
 ```
 
 Then serve it with PHP's built-in server rather than opening the file
@@ -56,14 +56,17 @@ use SsgLab\SiteBuilder;
 
 $builder = new SiteBuilder();
 $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', renderOptions: [
-    'theme' => 'colorful',
+    'theme' => 'topnav',
 ]);
 ```
 
 - `$pagesDir` is the root of a Collectives export: each folder is a page whose
   content is its `Readme.md`, plain `.md` files sitting next to it are leaf
   sub-pages, and `.attachments.<id>` directories hold that folder's inline
-  images/files.
+  images/files. File extensions and the `Readme.md` name are matched
+  case-insensitively. Dot-prefixed entries are skipped, and so are symlinks —
+  an export is read as the self-contained tree it claims to be, never through a
+  link that could lead out of it.
 
   Only attachments of an allowlisted file type are published: images, PDF,
   office documents, text, audio/video and archives. Dotfiles and every other
@@ -77,7 +80,10 @@ $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', ren
   `$pagesDir` is read or published. `$pagesDir` itself may be a symlink.
 - `$outDir` is where the static site is written. Each folder becomes
   `<name>/index.html`; each leaf `.md` file becomes `<name>/index.html` one
-  level below its folder.
+  level below its folder. Where a leaf and a folder of one parent would claim
+  the same name, the folder keeps it and the leaf is numbered off it
+  (`Cats.md` beside `Cats/` renders as `Cats-2/`), so neither overwrites the
+  other.
 - `$renderOptions` is optional and defaults to `null`; see
   [Render options](#render-options).
 - `build()` returns the number of rendered pages. It throws an
@@ -92,14 +98,61 @@ $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', ren
 arrives as an associative array (an empty object decodes to `[]`, so `[]` is
 accepted as well):
 
-| Key     | Type   | Default | Values                |
-| ------- | ------ | ------- | --------------------- |
-| `theme` | string | `muted` | `muted` or `colorful` |
+| Key     | Type   | Default | Values             |
+| ------- | ------ | ------- | ------------------ |
+| `theme` | string | `wiki`  | `wiki` or `topnav` |
 
-`theme` selects the color palette (`src/themes/*.css`) copied to the output as
-`palette.css`, and gives the page chrome (back link, sub-page heading,
-empty-page message, footer) a matching wording. Both palettes support the
-light/dark toggle.
+`theme` picks how a page navigates to the rest of the site. Its stylesheet
+(`src/themes/*.css`) is copied to the output as `layout.css`; prose, the
+light/dark toggle and the drawer script (`nav.js`) are the same under both. So
+is the content around a page's body: a way back up
+to the immediate parent, dividers either side of the content, and links to the
+previous and next page in the tree's reading order below it. Colors, typography,
+and how the rest of the site is reached are each layout's own — and with it
+where that way up a level lives, as part of each layout's own navigation rather
+than the page body shared between them.
+
+- **`wiki`** puts the site's whole page tree in a sidebar on the left, the same
+  on every page, with the page being shown marked `aria-current="page"`. Below
+  60rem there is no room for it beside the page, so it becomes a drawer that
+  slides in from the left, opened from a button in the site header and closed
+  by that button, by the dimmed page behind it, or by <kbd>Esc</kbd>. With
+  JavaScript unavailable the drawer can't be opened, so the tree falls back to
+  a band above the page and the button is never shown. The way up a level is
+  an "Up" link above the page's title.
+- **`topnav`** is a classic navbar: the site title on the left, the current
+  page's siblings centred in the same bar (itself marked
+  `aria-current="page"`), the theme toggle on the right, and below it a second
+  bar for the current page's own children. The way up a level is an "Up"
+  button, an arrow alone, left of whichever bar carries the current page's own
+  siblings. At the deepest level, where there are no children to put in the
+  second bar, the pair shifts up one level instead: the current page joins its
+  siblings in the second bar, and the first becomes its parent's own siblings,
+  the parent marked current there. The landing page has no siblings at all, so
+  it gets just the one bar, its own children in the primary bar's place,
+  nothing in it highlighted, and no "Up" button, since it has nowhere to go up
+  to. A page one level below it has no children either, but shifting up a
+  level would only reach the landing page, which has no siblings of its own to
+  promote into a primary bar — so that page's own siblings stay in the primary
+  bar instead of moving down, the same as any page with children of its own.
+  Below 40rem the first bar stops sharing the title's row, where its links
+  would have had to wrap over the page below, and takes a band of its own
+  under it instead, the "Up" button moving onto a line of its own above the
+  links rather than sharing the row they already wrap in. Both bands then
+  become a drawer that slides down out of the site header, opened and closed
+  the same way the `wiki` one is; with
+  JavaScript unavailable they stay on the page as the bands they are, and the
+  button is never shown. A site of a single page has no bar at all, and so no
+  drawer and no button either.
+
+Under neither layout does the page body repeat its sub-pages as a list: the
+sidebar and the bar already link them.
+
+Worth knowing before pointing `wiki` at a large export: every page carries a
+copy of the whole tree, so the output grows with the square of the page count —
+roughly 180 KB for 50 pages, 2 MB for 200, 16 MB for 600. Build time stays well
+under a second throughout. `topnav` carries one level, so its output grows
+linearly.
 
 Anything else — a value that is not an object, an unknown key, or a value
 outside the list — throws an `InvalidArgumentException` whose message names the
@@ -119,12 +172,13 @@ external ones get `rel="nofollow"`.
 
 The library sets no Content-Security-Policy: the web server serving the output
 should send one as a response header, so it also covers attachments opened
-directly. Scripts from the site's own origin are enough (`theme.js` is the only
-one), images and media from the site only, and inline styles are needed for
-the `style` attributes HTMLPurifier keeps.
+directly. Scripts from the site's own origin are enough (`theme.js` and
+`nav.js` are the only ones), images and media from the site only, and inline
+styles are needed for the `style` attributes HTMLPurifier keeps.
 
-Generated pages ship with a light/dark theme toggle (`style.css`, `theme.js`),
-copied into the output directory on every build.
+Generated pages ship with a light/dark theme toggle (`style.css`, `theme.js`)
+and the navigation drawer's script (`nav.js`), copied into the output
+directory on every build alongside the selected layout's `layout.css`.
 
 ### Why sanitization is split into two places
 

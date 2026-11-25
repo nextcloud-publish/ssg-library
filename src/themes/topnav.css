@@ -1,0 +1,313 @@
+/*
+ * `topnav` layout, selected via `theme: 'topnav'` in $renderOptions and copied
+ * to the build output as `layout.css`: a classic navbar — the site title on
+ * the left, the current page's siblings centred in the same row (itself
+ * marked current), the theme toggle on the right — plus, when the current
+ * page has any children, a second bar below carrying those. One level either
+ * side only, no further nesting. The way back up a level is the "Up" button
+ * (`.topnav-up`), left of whichever bar carries the current page's own
+ * siblings — unlike `wiki.css`'s own, which stays above the page's title,
+ * since here it sits right next to the page links it means "up" relative to.
+ * See `wiki.css` for the alternate layout, a sidebar tree instead of these
+ * two bars.
+ *
+ * `.topnav` (the primary, sibling bar) is a sibling of `.site-header` in the
+ * markup, not a child of it, so it can't share its flex row directly;
+ * `position: fixed` over the same box is what puts the two on one visual line
+ * without touching the HTML. `pointer-events` hands the row back to
+ * `.site-header` everywhere except where `.topnav`'s own content sits, so the
+ * brand and the toggle stay clickable underneath it. `.subnav` (the
+ * secondary, children bar) carries no such trick — it just sits in the normal
+ * flow below the header, the way `.topnav` alone used to, and the way
+ * `.topnav` itself falls back to once the row is too narrow to share (see the
+ * media query at the bottom), where the two together slide out of the header
+ * as one drawer.
+ *
+ * A darker, blue-accented palette, plus a rainbow the site's top-level pages
+ * are handed out of — each one, and every page under it, drawn in its own
+ * hue. Both are scoped to this layout alone by living here rather than in the
+ * shared style.css tokens `wiki` also reads.
+ */
+:root {
+    --bg: light-dark(#fafbfe, #10121c);
+    --bg-sunken: light-dark(#f1f3f9, #161926);
+    --bg-raised: light-dark(#fff, #1b1f2e);
+    --text: light-dark(#1b1f2e, #e8eaf2);
+    --text-muted: light-dark(#5b6172, #8b90a5);
+    --border: light-dark(#e2e5ee, #232738);
+    --border-strong: light-dark(#c7cce0, #333952);
+    --accent: light-dark(#3b50c9, #8da3ef);
+
+    /*
+     * The same hue as `--accent`, taken down in saturation and brightness,
+     * shared by the brand in the navbar and the root page's own title — the
+     * one page under no section, so the one page where the two read as one
+     * family instead of the title taking its section's rainbow hue. It stays
+     * well clear of the 3:1 large-text floor in both schemes — a quieter
+     * color, not a faded one.
+     */
+    --accent-soft: light-dark(#6472b8, #8f9ace);
+
+    /*
+     * One hue per top-level page, handed out in the order they appear and
+     * wrapped around once a site has more of them than there are hues here
+     * (SiteBuilder::SECTION_HUES has to match this count). Rainbow order, so
+     * neighbouring sections are neighbouring hues and a navbar read left to
+     * right runs through the spectrum rather than jumping about in it.
+     *
+     * Every one clears 4.5:1 against its scheme's `--bg`, which the small
+     * navbar links need and the titles get for free: the light values are
+     * darkened well past their nominal hue (the yellow especially, which at
+     * full brightness is unreadable on anything pale), the dark ones lifted
+     * towards pastel. Blue is `--accent` itself in dark, near enough in light,
+     * so a blue section sits level with the brand rather than beside it.
+     */
+    --hue-1: light-dark(#c62828, #ff8a80); /* red */
+    --hue-2: light-dark(#a84c00, #ffb15e); /* orange */
+    --hue-3: light-dark(#8a6a00, #e8c75a); /* yellow */
+    --hue-4: light-dark(#1e7a3c, #6fd68a); /* green */
+    --hue-5: light-dark(#00707f, #58d0d8); /* cyan */
+    --hue-6: light-dark(#2f4ac4, #8da3ef); /* blue */
+    --hue-7: light-dark(#7a3bbf, #c89bf5); /* violet */
+
+    /*
+     * Taller than the shared default: both `.site-header` (style.css) and
+     * `.topnav` below key off this same token, so overriding it here keeps
+     * the two in lockstep without having to repeat the height in both places.
+     */
+    --header-height: 4.5rem;
+}
+
+/*
+ * `data-section` is an ordinal, written by SiteBuilder on each top-level
+ * page's navbar link and on the `<body>` of every page under it (see
+ * `sectionAttr()`); this is the one place it turns into a color. Resolving it
+ * into a single inherited token rather than setting `color` seven times over
+ * keeps the rules that actually paint something down to the two below — and
+ * lets the `<body>`'s hue reach anything inside the page that wants it,
+ * whether or not that thing carries the attribute itself.
+ */
+[data-section="1"] { --section-hue: var(--hue-1); }
+[data-section="2"] { --section-hue: var(--hue-2); }
+[data-section="3"] { --section-hue: var(--hue-3); }
+[data-section="4"] { --section-hue: var(--hue-4); }
+[data-section="5"] { --section-hue: var(--hue-5); }
+[data-section="6"] { --section-hue: var(--hue-6); }
+[data-section="7"] { --section-hue: var(--hue-7); }
+
+.site-header > a {
+    font-family: var(--serif);
+    font-size: 1.15rem;
+    font-weight: 500;
+    color: var(--accent-soft);
+}
+.site-header > a:hover {
+    color: var(--accent-soft);
+    text-decoration: underline;
+}
+
+/*
+ * The box around both bars. It exists for the drawer alone — two bars sliding
+ * on their own would each travel their own height, and the second would still
+ * be on screen when the first had gone — so everywhere else it steps out of
+ * the way entirely and leaves each bar laid out against the body, the fixed
+ * one over the header's row and the other in the flow below it.
+ */
+.nav-drawer {
+    display: contents;
+}
+
+/*
+ * Both bars are the same thing — a centred row of links — so that part is
+ * written once, and each sets only what makes it itself below. The spacing
+ * between links is a variable rather than a declaration because it is the one
+ * thing the narrow-screen rules at the bottom tighten on both of them. The
+ * bar's own gap — all it separates is the "Up" button from the links — is
+ * wider than either, so the button reads as apart from them rather than as
+ * the first of them.
+ */
+.topnav, .subnav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+}
+.topnav ul, .subnav ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--nav-gap);
+}
+.topnav li, .subnav li { display: flex; }
+/* Reaching through the `li` keeps these off the "Up" button — see style.css. */
+.topnav li a, .subnav li a { padding: .2rem 0; }
+/* The weight is shared (style.css); the full-strength color is this layout's. */
+.topnav li a[aria-current], .subnav li a[aria-current] { color: var(--text); }
+
+/*
+ * A top-level page in its section's color, wherever in the two bars it turns
+ * up. Deliberately after the rule above and at the same specificity, so the
+ * current page keeps its hue and is marked by weight alone: the color is what
+ * says which section a link leads to, and the one link that would lose it is
+ * the one whose section the reader is standing in.
+ *
+ * Which also costs the shared hover its color change (style.css takes these
+ * links to `--link`), so the hover is an underline here instead — the same
+ * affordance the brand above already uses, and one that doesn't have to pick
+ * a second color per section to say the same thing.
+ */
+.topnav li a[data-section], .subnav li a[data-section] { color: var(--section-hue); }
+.topnav li a[data-section]:hover, .subnav li a[data-section]:hover { text-decoration: underline; }
+
+/* The primary bar, fixed over the header's row — see the note up top. */
+.topnav {
+    --nav-gap: 1.5rem;
+    position: fixed;
+    inset: 0 0 auto 0;
+    z-index: 10;
+    height: var(--header-height);
+    pointer-events: none;
+}
+/* Everything the bar actually draws takes the pointer back off the header. */
+.topnav > * { pointer-events: auto; }
+.topnav li a { font-size: .9rem; }
+
+/*
+ * The secondary bar: in the normal flow below the header (and below the
+ * primary bar fixed over it), its own band rather than an overlay, since
+ * there's no brand or toggle row to share.
+ */
+.subnav {
+    --nav-gap: 1.25rem;
+    padding: .6rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-sunken);
+}
+.subnav li a { color: var(--text-muted); font-size: .85rem; }
+
+/*
+ * The "Up" button, left of whichever bar carries the current page's own
+ * siblings. It is the same button `wiki` keeps above the page title, drawn by
+ * the shared `.page-up`/`.topnav-up` rule in style.css; all this layout adds
+ * is that the bar must not stretch or shrink it, and a raised fill instead of
+ * the shared sunken one — on a narrow screen it sits on the sunken band
+ * `.subnav` draws and would otherwise disappear into it.
+ */
+.topnav-up {
+    flex: none;
+    background: var(--bg-raised);
+}
+
+/* The title sits centred in this layout, under its centred bars. */
+.page-header {
+    text-align: center;
+}
+
+/*
+ * The title in the color of the section the page is in — the same color its
+ * top-level page is drawn in up in the navbar, so a page says where it sits
+ * before its words are read. The fallback is the root page, the one page
+ * under no section at all, which instead takes the brand's own blue, above.
+ */
+.page-title {
+    color: var(--section-hue, var(--accent-soft));
+}
+
+/*
+ * `screen` on purpose, as in `wiki.css`: a printed page is laid out at
+ * whatever width the paper is, which can well be under the breakpoint, and
+ * the scroll lock a drawer printed shut would leave behind takes everything
+ * past the first page with it. Print has no navigation at all (style.css
+ * hides both bars with the header) and so needs nothing from here.
+ */
+@media screen and (max-width: 40rem) {
+    .topnav { --nav-gap: 1rem; }
+    .subnav { --nav-gap: .85rem; }
+
+    /*
+     * Too narrow for one row: the links wrap, and a bar pinned to the header's
+     * height would spill its second row over the page below — taking its own
+     * pointer events with it, so the prose underneath would stop answering
+     * clicks. So here it gives up the overlay and takes a band of its own —
+     * the same one `.subnav` always has, the two reading as the stacked
+     * navbar they are — and the header goes back to the shared height it
+     * needs for just the brand and the toggle.
+     */
+    :root { --header-height: 3rem; }
+    .topnav {
+        position: static;
+        height: auto;
+        padding: .45rem 1.5rem;
+        pointer-events: auto;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-sunken);
+        /*
+         * The "Up" button takes a line of its own above the links rather than
+         * the room beside them: at this width the links already wrap, and a
+         * button sharing their row would push the wrap one link earlier while
+         * reading as the first of them. On top of the bars it reads as what
+         * it is — where the whole drawer goes back to.
+         */
+        flex-direction: column;
+        gap: .5rem;
+    }
+
+    /* ---------- Drawer ---------- */
+
+    /*
+     * With the script, the stacked bars above become a drawer and the header
+     * gains the handle that opens it. Both bars keep every rule that makes
+     * them what they are: the drawer is the same pair of bands, in the same
+     * place under the header, only now they arrive when asked rather than
+     * taking the top of every page before the page itself. Without the
+     * script nothing here applies and they stay where they are — the only
+     * fallback that leaves a navigation nothing can open out of the question.
+     */
+    :root[data-nav] .nav-toggle:not([hidden]) { display: flex; }
+    :root[data-nav] .nav-scrim { display: block; }
+
+    :root[data-nav] .nav-drawer {
+        /* No longer `display: contents`: the bars slide as the one box. */
+        display: block;
+        position: fixed;
+        /* Hung off the bottom edge of the site header it comes out from. */
+        inset: var(--header-height) 0 auto 0;
+        /* Under the header, which it slides behind; over the scrim and the page. */
+        z-index: 9;
+        /*
+         * A deep enough tree can fill both bars past the screen. `dvh` rather
+         * than `vh` so a phone's retracting toolbar can't park the last row
+         * somewhere unreachable.
+         */
+        max-height: calc(100dvh - var(--header-height));
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        box-shadow: 0 0 2rem rgb(0 0 0 / .18);
+        /*
+         * `visibility` rather than offset alone: a drawer that is merely
+         * parked off-screen still answers the Tab key, so its links would be
+         * reachable on a page that doesn't show them. It flips in step with
+         * the slide instead of part-way through it.
+         */
+        visibility: hidden;
+        transform: translateY(-100%);
+        transition: transform .25s ease, visibility .25s;
+    }
+    :root[data-nav="open"] .nav-drawer {
+        visibility: visible;
+        transform: none;
+    }
+
+    /*
+     * The drawer slides out from behind the header, so the header has to be
+     * something to be behind: the translucent fill it carries everywhere else
+     * would show the bars travelling up through it on the way shut.
+     */
+    :root[data-nav] .site-header {
+        background: var(--bg);
+        backdrop-filter: none;
+    }
+
+    /* The page shouldn't scroll away behind an open drawer. */
+    :root[data-nav="open"] body { overflow: hidden; }
+}

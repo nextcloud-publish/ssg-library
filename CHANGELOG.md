@@ -7,13 +7,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-25
+
+### Added
+
+- Each layout puts its navigation behind a button in the site header once the screen is too
+  narrow to carry it: below 60rem the `wiki` sidebar slides in from the left, below 40rem
+  `topnav`'s two bars slide down out of the header together. Either is closed by that button,
+  by the dimmed page behind it, or by Escape. Where JavaScript is unavailable the navigation
+  stays on the page as it was — a band above it under `wiki`, the two bars under `topnav` —
+  and the button is never shown. The drawer ships as `nav.js`, copied to the output on every
+  build next to `theme.js`.
+- `wiki` and `topnav` each carry their own palette over the design tokens in `style.css` instead
+  of only differing in layout: `wiki` a darker, teal-accented look, `topnav` a darker,
+  blue-accented one.
+- `topnav` hands each top-level page, and every page under it, one of seven hues in turn,
+  wrapping around once a site has more sections than hues: the page's title and its link in the
+  navbar share that color, so a reader can tell which section they're in before reading a word.
+  The root page, under no section, takes a quieter take on the brand's own accent instead.
+- `wiki`'s page title takes the same accent as the tree's root entry above it, pairing the two
+  serif lines either side of the sidebar's border.
+
 ### Changed
 
 - `MarkdownConverter::toHtml()` takes an optional `$attachmentPrefix`, prepended to links into
   `.attachments.*` folders.
+- **BREAKING:** `$renderOptions['theme']` selects a layout instead of a color palette: `wiki`
+  (default) shows the site's whole page tree in a left sidebar, `topnav` the current page's
+  sub-pages as a bar below the site header, one level deep, with the back link at its end.
+  `'muted'` and `'colorful'` are no longer accepted and now raise an `InvalidArgumentException`;
+  their shared colors and typography live in `style.css`.
+- **BREAKING:** the layout stylesheet is copied to the output as `layout.css`, not `palette.css`.
+  Anything referencing the old file name has to be pointed at the new one.
+- Pages no longer repeat their sub-pages as a list in the body — both layouts link them in their
+  navigation. A page without a `Readme.md` shows the empty-page message.
+- The UI chrome text (back link, empty-page message, footer) is the same under both layouts; it
+  used to be worded per theme.
+- Entries whose name starts with a dot are skipped wholesale, rather than only `.attachments.*`.
+- The "Up" control and the prev/next links below a page's content are drawn as one family of
+  chrome under both layouts — flat fill, hairline border, muted until hovered — rather than as
+  plain links styled per layout.
+- The shared site header no longer uppercases the site title.
+
+### Removed
+
+- The generated-at timestamp in the page footer; it dated every page on every build without
+  telling a reader anything about the page itself.
 
 ### Fixed
 
+- Page names are percent-encoded in navigation links. A `#` or `?` in a name used to cut the
+  link short at a fragment or a query string, and a page named `javascript:…` produced a link
+  with a scheme of its own — on every page under `topnav`, on the site root under `wiki`.
+- Symlinks inside an export are skipped instead of read through. A link pointing out of the
+  export used to have its target published as a file of the site's own, and one pointing at its
+  own parent expanded into as many nested copies of the tree as the OS would resolve.
+- A leaf `.md` file and a folder of the same name no longer render into one output directory,
+  where the folder silently overwrote the leaf. The folder keeps the name, the leaf is numbered
+  off it (`Cats-2`), and the returned page count matches what was written.
+- A folder's own page is recognised whatever its `Readme.md` is spelled like. `README.md` used
+  to be excluded as a leaf page and missed as a Readme, so the folder rendered as an empty page
+  and its content went unwritten.
+- A leaf file's slug drops its extension whatever its case: `Notes.MD` renders as `Notes/`, not
+  `Notes.MD/`.
 - The release notes have one blank line before the CHANGELOG link instead of two.
 - On leaf pages, attachment paths are rewritten by HTMLPurifier instead of a regex over its
   output. Text that looked like an attachment attribute, in prose or inline code, was rewritten
@@ -31,9 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Images and CSS `url()` from other hosts or root-relative paths are removed from pages. They
   let a page author track visitors or make them request other paths on the hosting origin.
   External links get `rel="nofollow"`.
-- A page file named `..md` or `...md` fails the build with an `InvalidArgumentException`. Its
-  page directory was `.` or `..`, so it was written over its folder's page or one directory up,
-  from the root outside the output directory.
+- A page file named `..md` or `...md` is skipped, like any other dot-prefixed entry. Read as a
+  leaf page, its directory would have been `.` or `..`, writing it over its folder's own page or
+  one directory up, from the root outside the output directory.
 - Symlinks, FIFOs, devices and sockets in the export are ignored. Symlinks were followed, so a
   crafted archive could publish any file the build could read, and a link to `/dev/zero`, a
   FIFO or a pair of links to their own folder could hang the build.
@@ -91,7 +147,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   alt text or falling back to the file name.
 - `bin/build-site.php` CLI entry point and example pages under `examples/` for local iteration.
 
-[Unreleased]: https://github.com/nextcloud-publish/ssg-library/compare/0.3.0...HEAD
+[Unreleased]: https://github.com/nextcloud-publish/ssg-library/compare/0.4.0...HEAD
+[0.4.0]: https://github.com/nextcloud-publish/ssg-library/releases/tag/0.4.0
 [0.3.0]: https://github.com/nextcloud-publish/ssg-library/releases/tag/0.3.0
 [0.2.0]: https://github.com/nextcloud-publish/ssg-library/releases/tag/0.2.0
 [0.1.0]: https://github.com/nextcloud-publish/ssg-library/releases/tag/0.1.0
