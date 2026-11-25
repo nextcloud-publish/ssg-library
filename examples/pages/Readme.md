@@ -23,7 +23,7 @@ echo "hi from the sample site";
           descriptions           |
 | Bob     | Short one                       |
 
-![A sample image](.attachments.1/example.svg)
+![A sample image](.attachments.1/example.png)
 
 Nextcloud Text embeds every attachment as an image, even when it isn't one.
 Those become plain links instead of broken images:

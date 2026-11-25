@@ -64,6 +64,17 @@ $pageCount = $builder->build($pagesDir, $outDir, siteTitle: 'My Collective', ren
   content is its `Readme.md`, plain `.md` files sitting next to it are leaf
   sub-pages, and `.attachments.<id>` directories hold that folder's inline
   images/files.
+
+  Only attachments of an allowlisted file type are published: images, PDF,
+  office documents, text, audio/video and archives. Dotfiles and every other
+  type, including HTML, SVG and scripts, are left out, and so is anything in a
+  dot-folder. The output is served from the published site's origin, so a file
+  the browser renders as a document or runs as script would run there. The
+  full list is `ATTACHMENT_EXTENSIONS` in `src/SiteBuilder.php`.
+
+  Only regular files and real directories are read: symlinks, FIFOs, devices
+  and sockets anywhere in the export are ignored, so nothing outside
+  `$pagesDir` is read or published. `$pagesDir` itself may be a symlink.
 - `$outDir` is where the static site is written. Each folder becomes
   `<name>/index.html`; each leaf `.md` file becomes `<name>/index.html` one
   level below its folder.
@@ -100,6 +111,17 @@ disallowed), run through HTMLPurifier to strip anything unsafe, and includes:
 - Server-side syntax highlighting for fenced code blocks (scrivo/highlight.php).
 - MultiMarkdown-style multiline tables (as used by Nextcloud Text).
 - GitHub-style task lists (`- [ ]` / `- [x]`).
+
+Embedded resources (images, CSS `url()`) only load from the site itself: an
+embed from another host, or by a root-relative path such as `/x`, is removed,
+so a page can't make its visitors fetch from elsewhere. Links are kept;
+external ones get `rel="nofollow"`.
+
+The library sets no Content-Security-Policy: the web server serving the output
+should send one as a response header, so it also covers attachments opened
+directly. Scripts from the site's own origin are enough (`theme.js` is the only
+one), images and media from the site only, and inline styles are needed for
+the `style` attributes HTMLPurifier keeps.
 
 Generated pages ship with a light/dark theme toggle (`style.css`, `theme.js`),
 copied into the output directory on every build.
