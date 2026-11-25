@@ -35,7 +35,7 @@ bin/build-site.php <pages-dir> <out-dir> [site-title] [theme]
 Try it against the sample export in `examples/pages`:
 
 ```sh
-bin/build-site.php examples/pages examples/output "Sample Site" topnav
+bin/build-site.php examples/pages examples/output "Sample Site" wiki
 ```
 
 Then serve it with PHP's built-in server rather than opening the file
@@ -44,6 +44,13 @@ to be resolved by a webserver:
 
 ```sh
 php -S 0.0.0.0:8090 -t examples/output
+```
+
+Of course, you can simply chain it in a one-liner:
+
+```sh
+bin/build-site.php examples/pages examples/output "Sample Site" wiki && php -S 0.0.0.0:8090 -t examples/output
+
 ```
 
 and open `http://localhost:8090/` in a browser. `examples/output/` is
