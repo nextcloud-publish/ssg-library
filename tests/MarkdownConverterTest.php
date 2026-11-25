@@ -207,4 +207,45 @@ class MarkdownConverterTest extends TestCase
         self::assertStringContainsString('<summary>Aufklappen</summary>', $html);
         self::assertStringContainsString('Lorem ipsum.', $html);
     }
+
+    #[DataProvider('provideCalloutTypes')]
+    public function testRendersCalloutBoxes(string $type): void
+    {
+        $html = $this->converter->toHtml("::: $type\nDies ist eine Info-Box\n:::");
+
+        self::assertStringContainsString(
+            '<div data-callout="' . $type . '" class="callout callout-' . $type . '">',
+            $html,
+        );
+        self::assertStringContainsString('<p>Dies ist eine Info-Box</p>', $html);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function provideCalloutTypes(): array
+    {
+        return [
+            'info' => ['info'],
+            'warn' => ['warn'],
+            'error' => ['error'],
+            'success' => ['success'],
+            'question' => ['question'],
+        ];
+    }
+
+    public function testRendersMarkdownInsideCalloutBoxes(): void
+    {
+        $html = $this->converter->toHtml("::: info\nSome **bold** text.\n:::");
+
+        self::assertStringContainsString('<strong>bold</strong>', $html);
+    }
+
+    public function testLeavesUnclosedCalloutFenceAsPlainText(): void
+    {
+        $html = $this->converter->toHtml("::: info\nNo closing fence here.");
+
+        self::assertStringNotContainsString('data-callout', $html);
+        self::assertStringContainsString('No closing fence here.', $html);
+    }
 }

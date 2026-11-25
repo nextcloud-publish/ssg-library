@@ -332,6 +332,24 @@ main {
 .content table p:first-child { margin-top: 0; }
 .content table p:last-child { margin-bottom: 0; }
 
+/* ---------- Callouts ---------- */
+
+.content .callout {
+	margin: 1.5rem 0;
+	padding: .9rem 1.2rem;
+	background: var(--bg-sunken);
+	border: 1px solid var(--border);
+	border-left: 3px solid var(--text-muted);
+	border-radius: var(--radius);
+}
+.content .callout p:first-child { margin-top: 0; }
+.content .callout p:last-child { margin-bottom: 0; }
+.content .callout-info { border-left-color: var(--link); }
+.content .callout-success { border-left-color: var(--hl-string); }
+.content .callout-warn { border-left-color: var(--hl-number); }
+.content .callout-error { border-left-color: var(--hl-variable); }
+.content .callout-question { border-left-color: var(--hl-keyword); }
+
 /* ---------- Sub-page index ---------- */
 
 .subpages { margin: 2.5rem 0 0; }
